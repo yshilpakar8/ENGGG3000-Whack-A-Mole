@@ -11,7 +11,7 @@
 */
 
 //#include <Servo.h>
-#include <ESP32Servo.h>
+
 int sensor1CM = 0;
 int sensor2CM = 0;
 
@@ -34,19 +34,15 @@ long readUltrasonicDistance(int triggerPin, int echoPin)
 }
 
 void setup(){
-  Serial.begin(9600);
+  Serial.begin(115200);
 }
 
 void loop(){
   //Sensor 1
-  sensor1CM = readUltrasonicDistance(7, 8) * 0.0343 / 2;
+  sensor1CM = readUltrasonicDistance(18, 19) * 0.0343 / 2;
   Serial.print("Sens 1:");
   Serial.print(sensor1CM);
   Serial.println("cm");
-  //Sensor 2
-  sensor2CM = readUltrasonicDistance(4, 5) * 0.0343 / 2;
-  Serial.print("Sens 2:");
-  Serial.print(sensor2CM);
-  Serial.println("cm");
+  //Sensor 
   
 }

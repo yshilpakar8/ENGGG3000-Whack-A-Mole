@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensor Console</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{
+    --bg: #0b0f0d;
+    --panel: #101613;
+    --line: #24322c;
+    --text: #e7f2ec;
+    --dim: #7c9184;
+    --live: #35e08a;
+    --live-dim: #1b6b45;
+    --warn: #e01935;
+    --display: #354a40;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    min-height: 50vh;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .console {
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 10px;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    box-shadow: 0 0 0 3px var(--live-dim);
+    animation: pulse 1.6s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .dot.offline {
+    background: #6b3b3b;
+    box-shadow: 0 0 0 3px #3a2222;
+    animation: none;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0 0 24px 0;
+    color: var(--text);
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 24px 24px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 30px;
+    
+  }
+
+  .panel::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--live-dim), transparent);
+  }
+  
+  .panel::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--live-dim), transparent);
+    
+  }
+
+  .channel {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .channel:last-child {
+    border-bottom: none;
+  }
+
+  .channel-label {
+    font-size: 12px;
+    color: var(--dim);
+    letter-spacing: 0.05em;
+  }
+
+  .channel-id {
+    color: var(--live);
+    margin-right: 6px;
+  }
+
+  .reading {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .reading-value {
+    font-size: 28px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    min-width: 2.5ch;
+    text-align: right;
+    transition: color 0.15s ease;
+  }
+
+  .reading-unit {
+    font-size: 12px;
+    color: var(--dim);
+  }
+
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .meta span:last-child {
+    color: var(--warn);
+  }
+
+  .meta span.ok {
+    color: var(--dim);
+  }
+  
+  .display {
+    background: var(--display);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 16px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  footer {
+    margin-top: 18px;
+    font-size: 10px;
+    color: var(--dim);
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+  <div class="console">
+    <div class="eyebrow">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Link established</span>
+    </div>
+
+    <h1>ESP32 Sensor Console</h1>
+
+    <div class="panel">
+      <div class="channel">
+        <div class="channel-label"><span class="channel-id">Sensor 01</span></div>
+        <div class="reading">
+          <span class="reading-value" id="distance1State">—</span>
+          <span class="reading-unit">cm</span>
+        </div>
+      </div>
+
+      <div class="meta">
+        <span class="ok" id="lastUpdate">waiting for first reading</span>
+      </div>
+    </div>
+    
+    <div class="panel">
+      <div class="channel">
+        <div class="channel-label"><span class="channel-id">Sensor 02</span></div>
+        <div class="reading">
+          <span class="reading-value" id="distance2State">—</span>
+          <span class="reading-unit">cm</span>
+        </div>
+      </div>
+
+      <div class="meta">
+        <span class="ok" id="lastUpdate">waiting for first reading</span>
+      </div>
+    </div>
+  </div>
+ 
+  
+ 
+
+<script>
+  var dot = document.getElementById('statusDot');
+  var statusText = document.getElementById('statusText');
+  var valueEl = document.getElementById('distance1State');
+  var valueEl2 = document.getElementById('distance2State');
+  var lastUpdateEl = document.getElementById('lastUpdate');
+  var lastGoodTime = null;
+
+  function setOnline(isOnline) {
+    if (isOnline) {
+      dot.classList.remove('offline');
+      statusText.textContent = 'Link established';
+    } else {
+      dot.classList.add('offline');
+      statusText.textContent = 'Link lost — retrying';
+    }
+  }
+
+  function updateStatus() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/status', true);
+    xhr.timeout = 1500;
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          try {
+            var s = JSON.parse(xhr.responseText);
+            valueEl.textContent = s.distance1;
+            valueEl2.textContent = s.remoteDistance;
+            setOnline(true);
+            lastGoodTime = new Date();
+            lastUpdateEl.textContent = 'updated ' + lastGoodTime.toLocaleTimeString();
+          } catch (e) {
+            setOnline(false);
+          }
+        } else {
+          setOnline(false);
+        }
+      }
+    };
+
+    xhr.onerror = function () { setOnline(false); };
+    xhr.ontimeout = function () { setOnline(false); };
+
+    xhr.send();
+  }
+
+  updateStatus();
+  setInterval(updateStatus, 500);
+</script>
+
+</body>
+</html>
