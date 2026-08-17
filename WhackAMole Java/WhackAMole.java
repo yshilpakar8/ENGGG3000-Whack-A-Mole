@@ -5,6 +5,7 @@ import java.awt.event.*;
 import java.util.Random;
 import java.util.random.*;
 
+
 public class WhackAMole {
 
     final int width = 600;

@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sensor Console</title>
-<link rel="icon" href="data:,">
-<style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sensor Console</title>
+  <link rel="icon" href="data:,">
+  <style>
   :root{
     --bg: #0b0f0d;
     --panel: #101613;
@@ -32,13 +32,14 @@
   body {
     display: flex;
     align-items: center;
-    justify-content: center;
     padding: 24px;
+    flex-direction: column; 
+    align-items: center;
   }
 
   .console {
     width: 100%;
-    max-width: 420px;
+    max-width: 700px;
   }
 
   .eyebrow {
@@ -108,6 +109,15 @@
     background: linear-gradient(90deg, transparent, var(--live-dim), transparent);
     
   }
+  .panel-row {
+    display: flex;
+    gap: 16px;
+  }
+ 
+  .panel-row .panel {
+    flex: 1;
+    min-width: 0;
+  }
 
   .channel {
     display: flex;
@@ -171,6 +181,7 @@
   }
   
   .display {
+    height: 382px;
     background: var(--display);
     border: 1px solid var(--line);
     border-radius: 20px;
@@ -179,14 +190,31 @@
     overflow: hidden;
   }
 
+  .player {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #0059B3;
+    box-shadow: 0 0 2px 2px #61ABFF;
+  }
+
+  canvas {
+    height: 600px;
+    width: 700px;
+    background: var(--display);
+    border: 1px solid var(--line);
+    border-radius: 5%;
+  }
+
   footer {
     margin-top: 18px;
     font-size: 10px;
     color: var(--dim);
     text-align: center;
     letter-spacing: 0.04em;
-  }
+}
 </style>
+
 </head>
 <body>
 
@@ -197,36 +225,40 @@
     </div>
 
     <h1>ESP32 Sensor Console</h1>
+    <div class="panel-row">
+      <div class="panel">
+        <div class="channel">
+          <div class="channel-label"><span class="channel-id">Sensor 01</span></div>
+          <div class="reading">
+            <span class="reading-value" id="distance1State">—</span>
+            <span class="reading-unit">cm</span>
+          </div>
+        </div>
 
-    <div class="panel">
-      <div class="channel">
-        <div class="channel-label"><span class="channel-id">Sensor 01</span></div>
-        <div class="reading">
-          <span class="reading-value" id="distance1State">—</span>
-          <span class="reading-unit">cm</span>
+        <div class="meta">
+          <span class="ok" id="lastUpdate">waiting for first reading</span>
         </div>
       </div>
-
-      <div class="meta">
-        <span class="ok" id="lastUpdate">waiting for first reading</span>
-      </div>
-    </div>
-    
-    <div class="panel">
-      <div class="channel">
-        <div class="channel-label"><span class="channel-id">Sensor 02</span></div>
-        <div class="reading">
-          <span class="reading-value" id="distance2State">—</span>
-          <span class="reading-unit">cm</span>
+      
+      <div class="panel">
+        <div class="channel">
+          <div class="channel-label"><span class="channel-id">Sensor 02</span></div>
+          <div class="reading">
+            <span class="reading-value" id="distance2State">—</span>
+            <span class="reading-unit">cm</span>
+          </div>
         </div>
-      </div>
 
-      <div class="meta">
-        <span class="ok" id="lastUpdate">waiting for first reading</span>
+        <div class="meta">
+          <span class="ok" id="lastUpdate">waiting for first reading</span>
+        </div>
       </div>
     </div>
   </div>
  
+  <canvas id="gameCanvas">
+
+  </canvas>
   
  
 
@@ -280,6 +312,49 @@
 
   updateStatus();
   setInterval(updateStatus, 500);
+
+
+  class Resources {
+    constructor(){
+      this.toLoad = {
+        mole: "/monty.png"
+      };
+
+      this.images = {};
+
+      Object.keys(this.toLoad).forEach(key => {
+        const img = new Image();
+        img.src = this.toLoad[key];
+        this.images[key] = {
+          image: img,
+          isLoaded: false
+        };
+        img.onload = () => {
+          this.images[key].isLoaded = true;
+        };
+        img.onerror = () => {
+          console.error(`Failed to load image: ${this.toLoad[key]}`);
+        };
+      });
+    }
+  }
+
+  const resourses = new Resources();
+
+
+  const canvas = document.querySelector("#gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  const draw = () => {
+    const mole = resourses.images.mole;
+    if(mole.isLoaded){
+      ctx.drawImage(mole.image, 0, 0);
+    }
+  }
+
+  setInterval(() => {
+    draw();
+  }, 300);
 </script>
 
 </body>
