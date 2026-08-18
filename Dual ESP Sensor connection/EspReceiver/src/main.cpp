@@ -75,7 +75,7 @@ void setup(){
     
   WiFi.mode(WIFI_AP_STA);
 
-  //WiFi.begin();
+  WiFi.begin();
   
   WiFi.softAP(ssid, password, WIFI_CHANNEL);
 
@@ -95,6 +95,7 @@ void setup(){
 }
 
 void loop(){
+  Serial.println(WiFi.macAddress());
 
   distance1 = measureDistance(trigPin, echoPin);
 
