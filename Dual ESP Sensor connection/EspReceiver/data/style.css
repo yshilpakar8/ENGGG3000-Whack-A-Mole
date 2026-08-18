@@ -191,8 +191,8 @@
   }
 
   canvas {
-    height: 600px;
-    width: 700px;
+    height: 700px;
+    width: 750px;
     background: var(--display);
     border: 1px solid var(--line);
     border-radius: 5%;
