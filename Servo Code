@@ -1,0 +1,47 @@
+#include <Servo.h>
+
+Servo myservo;
+int pos = 0;
+
+long duration;
+int distance;
+const int trigpin = 6;
+const int echopin = 7;
+
+void setup(){
+  pinMode(trigpin, OUTPUT);
+  pinMode(echopin, INPUT);
+  myservo.attach(9);
+  Serial.begin(115200);
+}
+
+long readDistance() {
+  digitalWrite(trigpin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigpin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigpin, LOW);
+  long duration = pulseIn(echopin, HIGH, 30000); // 30ms timeout
+  return duration * 0.034 / 2;
+}
+
+void loop(){
+  for (pos = 0; pos <= 270; pos += 10) {
+    myservo.write(pos);
+    distance = readDistance();
+    Serial.print("Angle: ");
+    Serial.print(pos);
+    Serial.print(" Distance: ");
+    Serial.println(distance);
+    delay(10);
+  }
+  for (pos = 270; pos >= 0; pos -= 10) {
+    myservo.write(pos);
+    distance = readDistance();
+    Serial.print("Angle: ");
+    Serial.print(pos);
+    Serial.print(" Distance: ");
+    Serial.println(distance);
+    delay(10);
+  }
+}
