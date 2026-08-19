@@ -2,7 +2,8 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <LittleFS.h>
-
+#include "esp_wifi.h"
+#include <Servo.h>
 
 
 // Wifi Variables
@@ -17,6 +18,8 @@ String header;
 
 const int WIFI_CHANNEL = 6;
 
+Servo myservo;
+int pos = 0;
 
 unsigned long currentTime = millis();
 unsigned long prevTime = 0;
@@ -24,11 +27,15 @@ const long timeout = 2000;
 
 int webState = 0;
 
+int missCount = 0;
+
 int distance1 = 0;
 int remoteDistance = 0;
 
 int trigPin = 18;
 int echoPin = 19;
+
+int servoPin = 32;
 
 typedef struct StructMessage {
   int distance;
@@ -71,6 +78,7 @@ void setup(){
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+  myservo.attach(servoPin);
 
     
   WiFi.mode(WIFI_AP_STA);
@@ -95,7 +103,7 @@ void setup(){
 }
 
 void loop(){
-  Serial.println(WiFi.macAddress());
+  //Serial.println(WiFi.macAddress());
 
   distance1 = measureDistance(trigPin, echoPin);
 
@@ -128,6 +136,8 @@ void loop(){
             break;
           }  
 
+          
+
           File file = LittleFS.open("/index.html", "r");
           if (file) {
             client.println("HTTP/1.1 200 OK");
@@ -156,6 +166,44 @@ void loop(){
     Serial.println("Client disconnected.");
     Serial.println("");
   }
+
+  if(message.distance >= 150 || message.distance < 50 || message.distance == -1) {
+    missCount++;
+  } else {
+    missCount = 0;
+  }
+
+  // if(missCount >= 3) {
+  //   Serial.println("Sweeping forward");
+  //   while(pos <= 270) {
+  //     pos += 5;
+  //     myservo.write(pos);
+  //     distance1 = measureDistance(trigPin, echoPin);
+  //     Serial.print("Distance: ");
+  //     Serial.println(distance1);
+  //     if(distance1 < 150 && distance1 > 50){ 
+  //       missCount = 0;
+  //       break; 
+  //     }
+  //     delay(100);
+      
+  //   }
+  // }
+  // if(missCount >= 3) {
+  //   Serial.println("Sweeping backward");
+  //   while(pos >= 0) {
+  //     pos -= 5;
+  //     myservo.write(pos);
+  //     distance1 = measureDistance(trigPin, echoPin);
+  //     Serial.print("Distance: ");
+  //     Serial.println(distance1);
+  //     if(distance1 < 150 && distance1 > 50){ 
+  //       missCount = 0; 
+  //       break; }
+  //     delay(100);
+      
+  //   }
+  // }
 
   // Prints the distance on the Serial Monitor
   Serial.println("");
