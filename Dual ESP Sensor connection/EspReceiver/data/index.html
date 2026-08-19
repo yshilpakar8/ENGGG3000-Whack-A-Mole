@@ -256,11 +256,8 @@
     </div>
   </div>
  
-  <canvas id="gameCanvas">
-
-  </canvas>
-  
- 
+  <canvas id="gameCanvas"> </canvas>
+   
 
 <script>
   var dot = document.getElementById('statusDot');
@@ -355,6 +352,60 @@
   setInterval(() => {
     draw();
   }, 300);
+
+  // Game setup and loop 
+
+  const thirdWidth = canvas.width / 3;
+  const thirdHeight = canvas.height / 3;
+
+  // mole image setup
+  const moleImage = new Image();
+  moleImage.src = 'monty.png';
+
+function drawGrid() {
+  ctx.strokeStyle = '#013220';
+  ctx.lineWidth = 2;
+  
+  for(let row = 0; row < 3; row++){
+    for(let col = 0; col < 3; col++){
+      ctx.strokeRect(col * thirdWidth, row * thirdHeight, thirdWidth, thirdHeight);
+    }    
+  }
+}
+
+function drawMole(x, y) {
+   ctx.drawImage(moleImage, x+5, y+5, thirdWidth-10, thirdHeight-10);
+}
+
+function molePosition() {
+  const row = Math.floor(Math.random() * 3);
+  const col = Math.floor(Math.random() * 3);
+  return { x: col * thirdWidth, y: row * thirdHeight };
+}
+
+function mouseClickHandler(event) {
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  const col = Math.floor(x / thirdWidth);
+  const row = Math.floor(y / thirdHeight);
+
+  console.log(`Clicked on cell: Row ${row}, Column ${col}`);
+}
+
+function gameLoop() {
+
+  drawGrid();
+  const position = molePosition();
+  drawMole(position.x, position.y);
+
+}
+
+moleImage.onload = function (){
+gameLoop();
+}
+
 </script>
 
 </body>
