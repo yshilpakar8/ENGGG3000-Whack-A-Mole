@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sensor Console</title>
+  <link rel="icon" href="data:,">
+  <style>
+  :root{
+    --bg: #0b0f0d;
+    --panel: #101613;
+    --line: #24322c;
+    --text: #e7f2ec;
+    --dim: #7c9184;
+    --live: #35e08a;
+    --live-dim: #1b6b45;
+    --warn: #e01935;
+    --display: #354a40;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    min-height: 50vh;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    padding: 24px;
+    flex-direction: column; 
+    align-items: center;
+  }
+
+  .console {
+    width: 100%;
+    max-width: 700px;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 10px;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    box-shadow: 0 0 0 3px var(--live-dim);
+    animation: pulse 1.6s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .dot.offline {
+    background: #6b3b3b;
+    box-shadow: 0 0 0 3px #3a2222;
+    animation: none;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0 0 24px 0;
+    color: var(--text);
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 24px 24px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 30px;
+    
+  }
+
+  .panel::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--live-dim), transparent);
+  }
+  
+  .panel::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--live-dim), transparent);
+    
+  }
+  .panel-row {
+    display: flex;
+    gap: 16px;
+  }
+ 
+  .panel-row .panel {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .channel {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .channel:last-child {
+    border-bottom: none;
+  }
+
+  .channel-label {
+    font-size: 12px;
+    color: var(--dim);
+    letter-spacing: 0.05em;
+  }
+
+  .channel-id {
+    color: var(--live);
+    margin-right: 6px;
+  }
+
+  .reading {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .reading-value {
+    font-size: 28px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    min-width: 2.5ch;
+    text-align: right;
+    transition: color 0.15s ease;
+  }
+
+  .reading-unit {
+    font-size: 12px;
+    color: var(--dim);
+  }
+
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .meta span:last-child {
+    color: var(--warn);
+  }
+
+  .meta span.ok {
+    color: var(--dim);
+  }
+  
+  .display {
+    height: 382px;
+    background: var(--display);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 16px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .player {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #0059B3;
+    box-shadow: 0 0 2px 2px #61ABFF;
+  }
+
+  canvas {
+    height: 700px;
+    width: 750px;
+    background: var(--display);
+    border: 1px solid var(--line);
+    border-radius: 5%;
+  }
+
+  footer {
+    margin-top: 18px;
+    font-size: 10px;
+    color: var(--dim);
+    text-align: center;
+    letter-spacing: 0.04em;
+}
+</style>
+
+</head>
+<body>
+
+  <div class="console">
+    <div class="eyebrow">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Link established</span>
+    </div>
+
+    <h1>ESP32 Sensor Console</h1>
+    <div class="panel-row">
+      <div class="panel">
+        <div class="channel">
+          <div class="channel-label"><span class="channel-id">Sensor 01</span></div>
+          <div class="reading">
+            <span class="reading-value" id="distance1State">—</span>
+            <span class="reading-unit">cm</span>
+          </div>
+        </div>
+
+        <div class="meta">
+          <span class="ok" id="lastUpdate">waiting for first reading</span>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="channel">
+          <div class="channel-label"><span class="channel-id">Sensor 02</span></div>
+          <div class="reading">
+            <span class="reading-value" id="distance2State">—</span>
+            <span class="reading-unit">cm</span>
+          </div>
+        </div>
+
+        <div class="meta">
+          <span class="ok" id="lastUpdate">waiting for first reading</span>
+        </div>
+      </div>
+    </div>
+  </div>
+ 
+  <!-- added score  -->
+  <div class="game-header">
+    <span>MOLE SCORE</span>
+    <span id="score">0</span>
+  </div>
+  
+  <!-- upload game canvas  -->
+  <canvas id="gameCanvas"></canvas>
+  
+ 
+
+<script>
+  var dot = document.getElementById('statusDot');
+  var statusText = document.getElementById('statusText');
+  var valueEl = document.getElementById('distance1State');
+  var valueEl2 = document.getElementById('distance2State');
+  var lastUpdateEl = document.getElementById('lastUpdate');
+  var lastGoodTime = null;
+
+  function setOnline(isOnline) {
+    if (isOnline) {
+      dot.classList.remove('offline');
+      statusText.textContent = 'Link established';
+    } else {
+      dot.classList.add('offline');
+      statusText.textContent = 'Link lost — retrying';
+    }
+  }
+
+  function updateStatus() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/status', true);
+    xhr.timeout = 1500;
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          try {
+            var s = JSON.parse(xhr.responseText);
+            valueEl.textContent = s.distance1;
+            valueEl2.textContent = s.remoteDistance;
+            setOnline(true);
+            lastGoodTime = new Date();
+            lastUpdateEl.textContent = 'updated ' + lastGoodTime.toLocaleTimeString();
+          } catch (e) {
+            setOnline(false);
+          }
+        } else {
+          setOnline(false);
+        }
+      }
+    };
+
+    xhr.onerror = function () { setOnline(false); };
+    xhr.ontimeout = function () { setOnline(false); };
+
+    xhr.send();
+  }
+
+  updateStatus();
+  setInterval(updateStatus, 500);
+
+
+  class Resources {
+    constructor(){
+      this.toLoad = {
+        mole: "/monty.png"
+      };
+
+      this.images = {};
+
+      Object.keys(this.toLoad).forEach(key => {
+        const img = new Image();
+        img.src = this.toLoad[key];
+        this.images[key] = {
+          image: img,
+          isLoaded: false
+        };
+        img.onload = () => {
+          this.images[key].isLoaded = true;
+        };
+        img.onerror = () => {
+          console.error(`Failed to load image: ${this.toLoad[key]}`);
+        };
+      });
+    }
+  }
+
+  const resourses = new Resources();
+
+
+  const canvas = document.querySelector("#gameCanvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = 750;
+canvas.height = 700;
+
+const scoreEl = document.querySelector("#score");
+
+let score = 0;
+
+const mole = {
+  x: 100,
+  y: 100,
+  width: 60,
+  height: 60,
+  hoverCooldown: false
+};
+
+
+// Set the canvas to the actual drawing size
+function resizeCanvas() {
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+
+  moveMole();
+}
+
+window.addEventListener("resize", resizeCanvas);
+
+
+// Move mole to a random position
+function moveMole() {
+
+  const padding = 20;
+
+  mole.x =
+    padding +
+    Math.random() *
+    (canvas.width - mole.width - padding * 2);
+
+  mole.y =
+    padding +
+    Math.random() *
+    (canvas.height - mole.height - padding * 2);
+}
+
+
+// Draw the game
+function draw() {
+
+  // Clear canvas
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  // Background
+  ctx.fillStyle = "#354a40";
+
+  ctx.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+
+  // Draw mole
+  const moleImage = resourses.images.mole;
+
+  if (moleImage.isLoaded) {
+
+    ctx.drawImage(
+      moleImage.image,
+      mole.x,
+      mole.y,
+      mole.width,
+      mole.height
+    );
+
+  } else {
+
+    // Temporary placeholder while image loads
+    ctx.fillStyle = "#35e08a";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      mole.x + mole.width / 2,
+      mole.y + mole.height / 2,
+      mole.width / 2,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+  }
+
+
+  requestAnimationFrame(draw);
+}
+
+
+// Convert mouse position to canvas coordinates
+function getMousePosition(event) {
+
+  const rect = canvas.getBoundingClientRect();
+
+  return {
+    x:
+      (event.clientX - rect.left) *
+      (canvas.width / rect.width),
+
+    y:
+      (event.clientY - rect.top) *
+      (canvas.height / rect.height)
+  };
+}
+
+
+// Check whether mouse is over mole
+function isMouseOverMole(x, y) {
+
+  return (
+    x >= mole.x &&
+    x <= mole.x + mole.width &&
+    y >= mole.y &&
+    y <= mole.y + mole.height
+  );
+}
+
+
+// Hover interaction
+canvas.addEventListener("mousemove", function(event) {
+
+  if (mole.hoverCooldown) {
+    return;
+  }
+
+  const mouse = getMousePosition(event);
+
+  if (isMouseOverMole(mouse.x, mouse.y)) {
+
+    // Increase score
+    score++;
+
+    scoreEl.textContent = score;
+
+    // Prevent multiple score increases
+    // from one mouse movement
+    mole.hoverCooldown = true;
+
+    // Move mole somewhere else
+    moveMole();
+
+    // Small cooldown before another hit
+    setTimeout(() => {
+      mole.hoverCooldown = false;
+    }, 100);
+  }
+
+});
+
+
+// Start game
+resizeCanvas();
+draw();
+</script>
+
+</body>
+</html>
