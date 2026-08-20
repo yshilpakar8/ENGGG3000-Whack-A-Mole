@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Sensor Console</title>
+
+  <link rel="icon" href="data:,">
+
+  <style>
+ 
+    :root {
+      --bg: #0b0f0d;
+      --panel: #101613;
+      --line: #24322c;
+      --text: #e7f2ec;
+      --dim: #7c9184;
+      --live: #35e08a;
+      --live-dim: #1b6b45;
+      --warn: #e01935;
+      --display: #354a40;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+
+      font-family:
+        "SF Mono",
+        "JetBrains Mono",
+        Menlo,
+        Consolas,
+        monospace;
+
+      min-height: 100vh;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .console {
+      width: 100%;
+      max-width: 700px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+
+      color: var(--dim);
+
+      margin-bottom: 10px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+
+      border-radius: 50%;
+
+      background: var(--live);
+
+      box-shadow:
+        0 0 0 3px var(--live-dim);
+
+      animation:
+        pulse 1.6s ease-in-out infinite;
+
+      flex-shrink: 0;
+    }
+
+    .dot.offline {
+      background: #6b3b3b;
+
+      box-shadow:
+        0 0 0 3px #3a2222;
+
+      animation: none;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 600;
+
+      letter-spacing: 0.02em;
+
+      margin: 0 0 24px 0;
+
+      color: var(--text);
+    }
+
+    /* SENSOR PANELS */
+
+    .panel-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .panel {
+      flex: 1;
+
+      background: var(--panel);
+
+      border: 1px solid var(--line);
+
+      border-radius: 20px;
+
+      padding: 24px;
+
+      position: relative;
+
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+
+      position: absolute;
+
+      top: 0;
+      left: 0;
+      right: 0;
+
+      height: 1px;
+
+      background:
+        linear-gradient(
+          90deg,
+          transparent,
+          var(--live-dim),
+          transparent
+        );
+    }
+
+    .channel {
+      display: flex;
+
+      justify-content: space-between;
+      align-items: baseline;
+
+      padding: 14px 0;
+
+      border-bottom:
+        1px solid var(--line);
+    }
+
+    .channel-label {
+      font-size: 12px;
+      color: var(--dim);
+
+      letter-spacing: 0.05em;
+    }
+
+    .channel-id {
+      color: var(--live);
+    }
+
+    .reading {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .reading-value {
+      font-size: 28px;
+      font-weight: 600;
+
+      font-variant-numeric:
+        tabular-nums;
+
+      min-width: 2.5ch;
+
+      text-align: right;
+    }
+
+    .reading-unit {
+      font-size: 12px;
+      color: var(--dim);
+    }
+
+    .meta {
+      display: flex;
+
+      justify-content: space-between;
+
+      margin-top: 16px;
+
+      font-size: 10px;
+
+      color: var(--dim);
+
+      letter-spacing: 0.08em;
+
+      text-transform: uppercase;
+    }
+
+    /* GAME */
+
+    .game-title {
+      font-size: 12px;
+
+      color: var(--dim);
+
+      letter-spacing: 0.15em;
+
+      text-transform: uppercase;
+
+      margin-bottom: 10px;
+    }
+
+    .display {
+      width: 100%;
+
+      background: var(--display);
+
+      border:
+        1px solid var(--line);
+
+      border-radius: 20px;
+
+      padding: 0;
+
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+
+      width: 100%;
+
+      height: auto;
+
+      aspect-ratio: 7 / 6;
+
+      background: var(--display);
+
+      cursor: crosshair;
+
+      touch-action: manipulation;
+
+      transition:
+        transform 0.08s ease;
+    }
+
+    footer {
+      margin-top: 18px;
+
+      font-size: 10px;
+
+      color: var(--dim);
+
+      text-align: center;
+
+      letter-spacing: 0.04em;
+    }
+
+    /* MOBILE */
+
+    @media (max-width: 600px) {
+
+      body {
+        padding: 16px;
+      }
+
+      .panel-row {
+        flex-direction: column;
+      }
+
+      .panel {
+        width: 100%;
+      }
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+  <div class="console">
+
+    <!-- STATUS -->
+
+    <div class="eyebrow">
+
+      <span
+        class="dot"
+        id="statusDot">
+      </span>
+
+      <span id="statusText">
+        Link established
+      </span>
+
+    </div>
+
+
+    <h1>
+      ESP32 Sensor Console
+    </h1>
+
+
+    <!-- SENSOR PANELS -->
+
+    <div class="panel-row">
+
+      <!-- SENSOR 01 -->
+
+      <div class="panel">
+
+        <div class="channel">
+
+          <div class="channel-label">
+
+            <span class="channel-id">
+              Sensor 01
+            </span>
+
+          </div>
+
+          <div class="reading">
+
+            <span
+              class="reading-value"
+              id="distance1State">
+              —
+            </span>
+
+            <span class="reading-unit">
+              cm
+            </span>
+
+          </div>
+
+        </div>
+
+        <div class="meta">
+
+          <span id="lastUpdate1">
+            waiting for first reading
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <!-- SENSOR 02 -->
+
+      <div class="panel">
+
+        <div class="channel">
+
+          <div class="channel-label">
+
+            <span class="channel-id">
+              Sensor 02
+            </span>
+
+          </div>
+
+          <div class="reading">
+
+            <span
+              class="reading-value"
+              id="distance2State">
+              —
+            </span>
+
+            <span class="reading-unit">
+              cm
+            </span>
+
+          </div>
+
+        </div>
+
+        <div class="meta">
+
+          <span id="lastUpdate2">
+            waiting for first reading
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- GAME -->
+
+    <div class="game-title">
+      WHACK-A-MOLE
+    </div>
+
+    <div class="display">
+
+      <canvas
+        id="gameCanvas"
+        width="700"
+        height="600">
+      </canvas>
+
+    </div>
+
+
+    <footer>
+      Click the mole — or use the sensors
+    </footer>
+
+  </div>
+
+
+  <!-- ================================= -->
+  <!-- JAVASCRIPT STARTS HERE            -->
+  <!-- ================================= -->
+
+  <script>
+
+
+    /* =================================
+       ESP32 STATUS
+       ================================= */
+
+    const dot =
+      document.getElementById("statusDot");
+
+    const statusText =
+      document.getElementById("statusText");
+
+    const valueEl =
+      document.getElementById(
+        "distance1State"
+      );
+
+    const valueEl2 =
+      document.getElementById(
+        "distance2State"
+      );
+
+    const lastUpdate1 =
+      document.getElementById(
+        "lastUpdate1"
+      );
+
+    const lastUpdate2 =
+      document.getElementById(
+        "lastUpdate2"
+      );
+
+
+    let previousDistance1 = null;
+    let previousDistance2 = null;
+
+
+    function setOnline(isOnline) {
+
+      if (isOnline) {
+
+        dot.classList.remove("offline");
+
+        statusText.textContent =
+          "Link established";
+
+      } else {
+
+        dot.classList.add("offline");
+
+        statusText.textContent =
+          "Link lost — retrying";
+
+      }
+
+    }
+
+
+    function updateStatus() {
+
+      const xhr =
+        new XMLHttpRequest();
+
+      xhr.open(
+        "GET",
+        "/status",
+        true
+      );
+
+      xhr.timeout = 1500;
+
+
+      xhr.onreadystatechange =
+        function () {
+
+          if (xhr.readyState !== 4) {
+            return;
+          }
+
+
+          if (xhr.status === 200) {
+
+            try {
+
+              const s =
+                JSON.parse(
+                  xhr.responseText
+                );
+
+
+              /*
+                SENSOR 01
+              */
+
+              const distance1 =
+                Number(s.distance1);
+
+
+              /*
+                SENSOR 02
+              */
+
+              const distance2 =
+                Number(s.remoteDistance);
+
+
+              valueEl.textContent =
+                s.distance1;
+
+              valueEl2.textContent =
+                s.remoteDistance;
+
+
+              const now =
+                new Date()
+                  .toLocaleTimeString();
+
+
+              lastUpdate1.textContent =
+                "updated " + now;
+
+              lastUpdate2.textContent =
+                "updated " + now;
+
+
+              setOnline(true);
+
+
+              /* =========================
+                 SENSOR 01 WHACK
+                 ========================= */
+
+              if (
+                previousDistance1 !== null &&
+                previousDistance1 > 20 &&
+                distance1 <= 20
+              ) {
+
+                sensorWhack();
+
+              }
+
+
+              /* =========================
+                 SENSOR 02 WHACK
+                 ========================= */
+
+              if (
+                previousDistance2 !== null &&
+                previousDistance2 > 20 &&
+                distance2 <= 20
+              ) {
+
+                sensorWhack();
+
+              }
+
+
+              previousDistance1 =
+                distance1;
+
+              previousDistance2 =
+                distance2;
+
+
+            } catch (e) {
+
+              console.error(e);
+
+              setOnline(false);
+
+            }
+
+          } else {
+
+            setOnline(false);
+
+          }
+
+        };
+
+
+      xhr.onerror =
+        function () {
+
+          setOnline(false);
+
+        };
+
+
+      xhr.ontimeout =
+        function () {
+
+          setOnline(false);
+
+        };
+
+
+      xhr.send();
+
+    }
+
+
+    /*
+      Check ESP32 every 500 ms
+    */
+
+    updateStatus();
+
+    setInterval(
+      updateStatus,
+      500
+    );
+
+
+    /* =================================
+       GAME
+       ================================= */
+
+
+    const canvas =
+      document.getElementById(
+        "gameCanvas"
+      );
+
+    const ctx =
+      canvas.getContext("2d");
+
+
+    /*
+      Game variables
+    */
+
+    let score = 0;
+
+    let timeLeft = 30;
+
+    let gameRunning = false;
+
+    let gameTimer = null;
+
+    let moleTimer = null;
+
+
+    /*
+      Mole
+    */
+
+    const mole = {
+
+      x: 350,
+
+      y: 300,
+
+      radius: 55
+
+    };
+
+
+    /* =================================
+       MOLE IMAGE
+       ================================= */
+
+    const moleImage =
+      new Image();
+
+    moleImage.src =
+      "/monty.png";
+
+
+    moleImage.onload =
+      function () {
+
+        draw();
+
+      };
+
+
+    moleImage.onerror =
+      function () {
+
+        console.log(
+          "monty.png could not be loaded"
+        );
+
+        draw();
+
+      };
+
+
+    /* =================================
+       START GAME
+       ================================= */
+
+    function startGame() {
+
+      score = 0;
+
+      timeLeft = 30;
+
+      gameRunning = true;
+
+
+      clearInterval(
+        gameTimer
+      );
+
+      clearInterval(
+        moleTimer
+      );
+
+
+      moveMole();
+
+
+      /*
+        Countdown
+      */
+
+      gameTimer =
+        setInterval(
+          function () {
+
+            timeLeft--;
+
+            draw();
+
+
+            if (timeLeft <= 0) {
+
+              endGame();
+
+            }
+
+          },
+          1000
+        );
+
+
+      /*
+        Move mole every 700ms
+      */
+
+      moleTimer =
+        setInterval(
+          function () {
+
+            moveMole();
+
+          },
+          700
+        );
+
+
+      draw();
+
+    }
+
+
+    /* =================================
+       END GAME
+       ================================= */
+
+    function endGame() {
+
+      gameRunning = false;
+
+
+      clearInterval(
+        gameTimer
+      );
+
+      clearInterval(
+        moleTimer
+      );
+
+
+      draw();
+
+    }
+
+
+    /* =================================
+       MOVE MOLE
+       ================================= */
+
+    function moveMole() {
+
+      const padding =
+        mole.radius + 10;
+
+
+      mole.x =
+        padding +
+        Math.random() *
+        (
+          canvas.width -
+          padding * 2
+        );
+
+
+      /*
+        Keep mole away from
+        scoreboard at top
+      */
+
+      mole.y =
+        100 +
+        Math.random() *
+        (
+          canvas.height -
+          100 -
+          padding
+        );
+
+
+      draw();
+
+    }
+
+
+    /* =================================
+       DRAW GAME
+       ================================= */
+
+    function draw() {
+
+      /*
+        Clear canvas
+      */
+
+      ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+
+      /*
+        Background
+      */
+
+      ctx.fillStyle =
+        "#354a40";
+
+      ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+
+      /*
+        GAME INFORMATION
+      */
+
+      ctx.fillStyle =
+        "#e7f2ec";
+
+      ctx.font =
+        "bold 22px monospace";
+
+
+      ctx.textAlign =
+        "left";
+
+      ctx.fillText(
+        "SCORE: " + score,
+        20,
+        35
+      );
+
+
+      ctx.textAlign =
+        "right";
+
+      ctx.fillText(
+        "TIME: " + timeLeft,
+        canvas.width - 20,
+        35
+      );
+
+
+      ctx.textAlign =
+        "left";
+
+
+      /*
+        Draw mole
+      */
+
+      if (gameRunning) {
+
+        if (
+          moleImage.complete &&
+          moleImage.naturalWidth > 0
+        ) {
+
+          /*
+            Draw your actual
+            monty.png image
+          */
+
+          ctx.drawImage(
+
+            moleImage,
+
+            mole.x - mole.radius,
+
+            mole.y - mole.radius,
+
+            mole.radius * 2,
+
+            mole.radius * 2
+
+          );
+
+        } else {
+
+          /*
+            Backup mole if
+            image doesn't load
+          */
+
+          drawBackupMole();
+
+        }
+
+      }
+
+
+      /*
+        START SCREEN
+      */
+
+      if (
+        !gameRunning &&
+        timeLeft === 30
+      ) {
+
+        ctx.fillStyle =
+          "rgba(0, 0, 0, 0.55)";
+
+        ctx.fillRect(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+
+        ctx.textAlign =
+          "center";
+
+
+        ctx.fillStyle =
+          "#e7f2ec";
+
+        ctx.font =
+          "bold 40px monospace";
+
+
+        ctx.fillText(
+          "WHACK-A-MOLE",
+          canvas.width / 2,
+          250
+        );
+
+
+        ctx.font =
+          "20px monospace";
+
+
+        ctx.fillText(
+          "Click to start",
+          canvas.width / 2,
+          300
+        );
+
+
+        ctx.font =
+          "15px monospace";
+
+
+        ctx.fillText(
+          "Or use the sensors",
+          canvas.width / 2,
+          335
+        );
+
+
+        ctx.textAlign =
+          "left";
+
+      }
+
+
+      /*
+        GAME OVER SCREEN
+      */
+
+      if (
+        !gameRunning &&
+        timeLeft === 0
+      ) {
+
+        ctx.fillStyle =
+          "rgba(0, 0, 0, 0.65)";
+
+        ctx.fillRect(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+
+        ctx.textAlign =
+          "center";
+
+
+        ctx.fillStyle =
+          "#e7f2ec";
+
+        ctx.font =
+          "bold 40px monospace";
+
+
+        ctx.fillText(
+          "GAME OVER",
+          canvas.width / 2,
+          240
+        );
+
+
+        ctx.font =
+          "24px monospace";
+
+
+        ctx.fillText(
+          "Score: " + score,
+          canvas.width / 2,
+          290
+        );
+
+
+        ctx.font =
+          "16px monospace";
+
+
+        ctx.fillText(
+          "Click to play again",
+          canvas.width / 2,
+          335
+        );
+
+
+        ctx.textAlign =
+          "left";
+
+      }
+
+    }
+
+
+    /* =================================
+       BACKUP MOLE
+       ================================= */
+
+    function drawBackupMole() {
+
+      /*
+        Body
+      */
+
+      ctx.beginPath();
+
+      ctx.arc(
+        mole.x,
+        mole.y,
+        mole.radius,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fillStyle =
+        "#0059B3";
+
+      ctx.fill();
+
+
+      /*
+        Glow
+      */
+
+      ctx.strokeStyle =
+        "#61ABFF";
+
+      ctx.lineWidth = 4;
+
+      ctx.stroke();
+
+
+      /*
+        Eyes
+      */
+
+      ctx.fillStyle =
+        "white";
+
+
+      ctx.beginPath();
+
+      ctx.arc(
+        mole.x - 18,
+        mole.y - 10,
+        8,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+
+
+      ctx.beginPath();
+
+      ctx.arc(
+        mole.x + 18,
+        mole.y - 10,
+        8,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+
+
+      /*
+        Pupils
+      */
+
+      ctx.fillStyle =
+        "black";
+
+
+      ctx.beginPath();
+
+      ctx.arc(
+        mole.x - 18,
+        mole.y - 10,
+        3,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+
+
+      ctx.beginPath();
+
+      ctx.arc(
+        mole.x + 18,
+        mole.y - 10,
+        3,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+
+
+      /*
+        Nose
+      */
+
+      ctx.fillStyle =
+        "#e01935";
+
+
+      ctx.beginPath();
+
+      ctx.arc(
+        mole.x,
+        mole.y + 10,
+        8,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+
+    }
+
+
+    /* =================================
+       PLAYER WHACK
+       ================================= */
+
+    function whack(x, y) {
+
+      /*
+        If game isn't running,
+        clicking starts it.
+      */
+
+      if (!gameRunning) {
+
+        startGame();
+
+        return;
+
+      }
+
+
+      /*
+        Calculate distance from
+        click to mole
+      */
+
+      const dx =
+        x - mole.x;
+
+      const dy =
+        y - mole.y;
+
+
+      const distance =
+        Math.sqrt(
+          dx * dx +
+          dy * dy
+        );
+
+
+      /*
+        Hit!
+      */
+
+      if (
+        distance <= mole.radius
+      ) {
+
+        score++;
+
+
+        /*
+          Move mole immediately
+        */
+
+        moveMole();
+
+
+        /*
+          Small screen effect
+        */
+
+        canvas.style.transform =
+          "scale(0.98)";
+
+
+        setTimeout(
+          function () {
+
+            canvas.style.transform =
+              "scale(1)";
+
+          },
+          80
+        );
+
+      }
+
+    }
+
+
+    /* =================================
+       MOUSE CONTROL
+       ================================= */
+
+    canvas.addEventListener(
+      "click",
+      function (event) {
+
+        const rect =
+          canvas.getBoundingClientRect();
+
+
+        /*
+          Convert screen coordinates
+          into canvas coordinates
+        */
+
+        const scaleX =
+          canvas.width /
+          rect.width;
+
+        const scaleY =
+          canvas.height /
+          rect.height;
+
+
+        const x =
+          (
+            event.clientX -
+            rect.left
+          ) * scaleX;
+
+
+        const y =
+          (
+            event.clientY -
+            rect.top
+          ) * scaleY;
+
+
+        whack(x, y);
+
+      }
+    );
+
+
+    /* =================================
+       TOUCH CONTROL
+       ================================= */
+
+    canvas.addEventListener(
+      "touchstart",
+      function (event) {
+
+        event.preventDefault();
+
+
+        const rect =
+          canvas.getBoundingClientRect();
+
+
+        const touch =
+          event.touches[0];
+
+
+        const scaleX =
+          canvas.width /
+          rect.width;
+
+        const scaleY =
+          canvas.height /
+          rect.height;
+
+
+        const x =
+          (
+            touch.clientX -
+            rect.left
+          ) * scaleX;
+
+
+        const y =
+          (
+            touch.clientY -
+            rect.top
+          ) * scaleY;
+
+
+        whack(x, y);
+
+      }
+    );
+
+
+    /* =================================
+       SENSOR CONTROL
+       ================================= */
+
+    function sensorWhack() {
+
+      /*
+        If game isn't running,
+        sensor starts the game.
+      */
+
+      if (!gameRunning) {
+
+        startGame();
+
+        return;
+
+      }
+
+
+      /*
+        Sensor detected mole
+      */
+
+      score++;
+
+
+      /*
+        Move mole
+      */
+
+      moveMole();
+
+
+      /*
+        Flash canvas
+      */
+
+      canvas.style.transform =
+        "scale(0.98)";
+
+
+      setTimeout(
+        function () {
+
+          canvas.style.transform =
+            "scale(1)";
+
+        },
+        80
+      );
+
+    }
+
+
+    /* =================================
+       INITIAL DRAW
+       ================================= */
+
+    draw();
+
+
+  </script>
+
+</body>
+
+</html>
