@@ -307,52 +307,6 @@
     xhr.send();
   }
 
-  updateStatus();
-  setInterval(updateStatus, 500);
-
-
-  class Resources {
-    constructor(){
-      this.toLoad = {
-        mole: "/monty.png"
-      };
-
-      this.images = {};
-
-      Object.keys(this.toLoad).forEach(key => {
-        const img = new Image();
-        img.src = this.toLoad[key];
-        this.images[key] = {
-          image: img,
-          isLoaded: false
-        };
-        img.onload = () => {
-          this.images[key].isLoaded = true;
-        };
-        img.onerror = () => {
-          console.error(`Failed to load image: ${this.toLoad[key]}`);
-        };
-      });
-    }
-  }
-
-  const resourses = new Resources();
-
-
-  const canvas = document.querySelector("#gameCanvas");
-  const ctx = canvas.getContext("2d");
-
-  const draw = () => {
-    const mole = resourses.images.mole;
-    if(mole.isLoaded){
-      ctx.drawImage(mole.image, 0, 0);
-    }
-  }
-
-  setInterval(() => {
-    draw();
-  }, 300);
-
   // Game setup and loop 
 
   const thirdWidth = canvas.width / 3;
