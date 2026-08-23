@@ -667,3 +667,10 @@ setInterval(updateTimeRemaining, 1000);
 
 </body>
 </html>
+
+// mitagation for merger issues 
+ we can revert bacl to the previous version of the file if needed.
+ first use git log --oneline to find the hash of the previous file version 
+ Use git checkout hash to revert the file to that version temporarily. 
+ use git revert hash to move back to the previous version permanently.
+ keep in mind that reverting back to the prevsion can discard any change made after that version to all files present in the repository.
