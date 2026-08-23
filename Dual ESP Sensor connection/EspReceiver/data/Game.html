@@ -586,7 +586,7 @@ canvas.addEventListener("mousemove", function(event) {
 
   const mouse = getMousePosition(event);
 
-  if (isMouseOverMole(mouse.x, mouse.y)) {
+  if (mole.visible && isMouseOverMole(mouse.x, mouse.y)) {
 
     // Increase score
     score++;
