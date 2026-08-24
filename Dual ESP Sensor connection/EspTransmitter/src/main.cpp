@@ -2,6 +2,7 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include "esp_wifi.h"
+#include <Servo.h>
 
 uint8_t broadcastAddress[] = {0xE0, 0x5A, 0x1B, 0x1F, 0xD9, 0x20};
 
@@ -9,6 +10,13 @@ const int WIFI_CHANNEL = 6;
 
 int trigPin = 18;
 int echoPin = 19;
+
+Servo myservo;
+int pos = 0;
+int servoPin = 32;
+
+int missCount = 0;
+int foundCount = 0;
 
 typedef struct StructMessage {
   int distance;
@@ -40,6 +48,7 @@ void setup() {
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+  myservo.attach(servoPin);
 
   if(esp_now_init() != ESP_OK) {
     Serial.println("Error initialising ESP-NOW");
@@ -60,8 +69,6 @@ void setup() {
     Serial.println("Failed to add peer");
     return;
   }
-
-
 }
 
 void loop() {
@@ -74,6 +81,52 @@ void loop() {
     Serial.println("Message sent successfully");
   } else {
     Serial.println("Error sending the message");
+  }
+
+  if(message.distance >= 150 || message.distance < 50 || message.distance == -1) {
+    missCount++;
+  } else {
+    missCount = 0;
+  }
+
+
+  if(missCount >= 3) {
+    Serial.println("Sweeping forward");
+    while(pos <= 270) {
+      pos += 5;
+      myservo.write(pos);
+      message.distance = measureDistance(trigPin, echoPin);
+      Serial.print("Distance: ");
+      Serial.println(message.distance);
+      if(message.distance < 150 && message.distance > 50){ 
+        foundCount ++;
+        if(foundCount >= 3) {
+        missCount = 0;
+        break; 
+        }
+      }
+      delay(100);
+      
+    }
+  }
+  if(missCount >= 3) {
+    Serial.println("Sweeping backward");
+    while(pos >= 0) {
+      pos -= 5;
+      myservo.write(pos);
+      message.distance = measureDistance(trigPin, echoPin);
+      Serial.print("Distance: ");
+      Serial.println(message.distance);
+      if(message.distance < 150 && message.distance > 50){ 
+        foundCount ++;
+        if(foundCount >= 3) {
+        missCount = 0;
+        break; 
+        }
+      }
+      delay(100);
+      
+    }
   }
 
   // Prints the distance on the Serial Monitor

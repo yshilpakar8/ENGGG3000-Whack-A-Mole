@@ -82,8 +82,6 @@ void setup(){
 
     
   WiFi.mode(WIFI_AP_STA);
-
-  WiFi.begin();
   
   WiFi.softAP(ssid, password, WIFI_CHANNEL);
 
@@ -167,11 +165,11 @@ void loop(){
     Serial.println("");
   }
 
-  if(message.distance >= 150 || message.distance < 50 || message.distance == -1) {
-    missCount++;
-  } else {
-    missCount = 0;
-  }
+  // if(message.distance >= 150 || message.distance < 50 || message.distance == -1) {
+  //   missCount++;
+  // } else {
+  //   missCount = 0;
+  // }
 
   // if(missCount >= 3) {
   //   Serial.println("Sweeping forward");
