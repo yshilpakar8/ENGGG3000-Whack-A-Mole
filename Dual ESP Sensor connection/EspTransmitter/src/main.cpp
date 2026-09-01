@@ -36,7 +36,7 @@ long measureDistance(int triggerPin, int echoPin)
   digitalWrite(triggerPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(triggerPin, LOW);
-  long duration = pulseIn(echoPin, HIGH);
+  long duration = pulseIn(echoPin, HIGH, 20000);
   return duration * 0.0343 / 2;
 }
 
@@ -72,6 +72,7 @@ void setup() {
 }
 
 void loop() {
+  Serial.println(WiFi.macAddress());
 
   message.distance = measureDistance(trigPin, echoPin);
 

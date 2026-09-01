@@ -43,19 +43,34 @@ typedef struct StructMessage {
 
 StructMessage message;
 
+uint8_t transmitterMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04}; 
+
 void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
+  // if (len != sizeof(StructMessage)) {
+  //   Serial.printf("Ignored packet: wrong size (%d bytes)\n", len);
+  //   return;
+  // }
+  if (memcmp(mac_addr, transmitterMac, 6) != 0) {
+    //Serial.println("Ignored packet: unknown sender");
+    return;
+  }
   memcpy(&message, incomingData, sizeof(message));
-  
-  Serial.println("Bytes received: ");
-  Serial.println(len);
-
   remoteDistance = message.distance;
+}
 
-  Serial.println("Integer: ");
-  Serial.println(message.distance);
+// void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
+//   memcpy(&message, incomingData, sizeof(message));
+  
+//   Serial.println("Bytes received: ");
+//   Serial.println(len);
+
+//   remoteDistance = message.distance;
+
+//   Serial.println("Integer: ");
+//   Serial.println(message.distance);
 
   
-}
+// }
 
 long measureDistance(int triggerPin, int echoPin)
 {
@@ -65,7 +80,7 @@ long measureDistance(int triggerPin, int echoPin)
   delayMicroseconds(10);
   digitalWrite(triggerPin, LOW);
     
-  long duration = pulseIn(echoPin, HIGH);
+  long duration = pulseIn(echoPin, HIGH, 20000);
   return duration * 0.0343 / 2;
 }
 
@@ -91,10 +106,10 @@ void setup(){
   }
 
   esp_now_register_recv_cb(dataRecv);
-  Serial.print("Connecting to WiFi ..");
+  // Serial.print("Connecting to WiFi ..");
 
-  Serial.println("IP Address");
-  Serial.println(WiFi.softAPIP());
+  // Serial.println("IP Address");
+  // Serial.println(WiFi.softAPIP());
 
   Server.begin();
 
@@ -111,13 +126,13 @@ void loop(){
   if (client) {                             // If a new client connects,
     currentTime = millis();
     prevTime = currentTime;
-    Serial.println("New Client.");          // print a message out in the serial port
+    // Serial.println("New Client.");          // print a message out in the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
     while (client.connected() && currentTime - prevTime <= timeout) {  // loop while the client's connected
       currentTime = millis();
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
-        Serial.write(c);                    // print it out the serial monitor
+        // Serial.write(c);                    // print it out the serial monitor
         header += c;
         if (c == '\n') {  
           // Serve JSON status for live updates
@@ -161,8 +176,8 @@ void loop(){
     header = "";
     // Close the connection  
     client.stop();
-    Serial.println("Client disconnected.");
-    Serial.println("");
+    // Serial.println("Client disconnected.");
+    // Serial.println("");
   }
 
   // if(message.distance >= 150 || message.distance < 50 || message.distance == -1) {
@@ -204,13 +219,13 @@ void loop(){
   // }
 
   // Prints the distance on the Serial Monitor
-  Serial.println("");
-  Serial.print("Distance: ");
+  // Serial.println("");
+  // Serial.print("Distance: ");
   Serial.println(distance1);
 
-  Serial.println("");
-  Serial.print("Remote Dist: ");
-  Serial.println(remoteDistance);
+  // Serial.println("");
+  // Serial.print("Remote Dist: ");
+  // Serial.println(remoteDistance);
   delay(10);
   
 }
