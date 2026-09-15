@@ -1,0 +1,44 @@
+#include <stdio.h>
+#include <math.h>
+
+int main(){
+
+double S11 = 5;
+double S12 = 5;
+double S13 = 5;
+double S21 = 5;
+double S22 = 5;
+double S23 = 5;
+
+double Sensor1;
+double Sensor2;
+
+if (S11>0 && S12==0 && S13==0){
+    Sensor1 = S11;
+} else if (S12>0 && S11==0 && S13==0){
+    Sensor1 = S12;
+} else if (S13>0 && S11==0 && S12==0){
+    Sensor1 = S13;
+} else if (S11>0 && S12>0 && S13>0){
+    Sensor1 = S11;
+}
+
+if (S21>0 && S22==0 && S23==0){
+    Sensor2 = S21;
+} else if (S22>0 && S21==0 && S23==0){
+    Sensor2 = S22;
+} else if (S23>0 && S21==0 && S22==0){
+    Sensor2 = S23;
+} else if (S21>0 && S22>0 && S23>0){
+    Sensor2 = S21;
+}
+
+double cos_theta = (Sensor1 * Sensor1 + 150 * 150 - Sensor2 * Sensor2) / (2 * Sensor1 * 150);
+double theta = acos(cos_theta);
+double height = Sensor1 * sin(theta);
+
+printf(theta);
+
+return 0;
+
+}
