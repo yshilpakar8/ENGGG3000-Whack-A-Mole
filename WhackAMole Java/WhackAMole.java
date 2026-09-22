@@ -2,11 +2,15 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class WhackAMole {
 
-    final int width = 600;
+    final int width = 900;
     final int height = 700;
+
+    int playWidth = 600, playHeight = 600;
     final int timeFrame = 15;
     int lastLoc = 0;
 
@@ -14,7 +18,22 @@ public class WhackAMole {
     int clicked = 0;
 
     String lastSerialLine = "";   // raw data read from the ESP32
-    int circleY = 0;
+    
+    volatile float sensorX = -1;
+    volatile float sensorY = -1;
+
+    static final float SENSOR_X_MAX = 100f; // cm
+    static final float SENSOR_Y_MAX = 100f; 
+ 
+    static final int GRID_COLS = 3;
+    static final int GRID_ROWS = 3;
+    
+    static final Pattern XY_PATTERN =
+            Pattern.compile("x:\\s*(-?[0-9]*\\.?[0-9]+).*?y:\\s*(-?[0-9]*\\.?[0-9]+)");
+
+
+
+
     JPanel sensorPanel;
     SerialTest serialTest;
 
@@ -62,6 +81,7 @@ public class WhackAMole {
         grassImg = new ImageIcon(getClass().getResource("./grass.png")).getImage();
         holeImg = new ImageIcon(getClass().getResource("./hole.png")).getImage();
         boardPanel.setOpaque(false);
+        boardPanel.setSize(600, 600);
         
 
         startButton.setText("START");
@@ -81,6 +101,7 @@ public class WhackAMole {
         timerLabel.setFont(new Font("Arial", Font.PLAIN, 20));
         timerLabel.setHorizontalAlignment(JLabel.CENTER);
         timerLabel.setText("Timer: " + timeFrame);
+
         timerLabel.setOpaque(true);
 
         timerPanel.setLayout(new BorderLayout());
@@ -102,14 +123,39 @@ public class WhackAMole {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                int x = width / 2;
-                int y = circleY;
-                g.setColor(Color.RED);
-                g.fillOval(x, y, 20, 20);
+                if (sensorX < 0 || sensorY < 0) {
+                    return; // no fix yet / invalid reading -> draw nothing
+                }
+                if (boardPanel.getWidth() == 0 || boardPanel.getHeight() == 0) {
+                    return; // board not laid out yet
+                }
+
+
+                Graphics2D g2 = (Graphics2D) g;
+
+                // g2.setColor(Color.RED);
+                // g2.fillOval((int) sensorX, (int) sensorY, 19, 19);
+                // g2.drawOval((int) sensorX, (int) sensorY, 20, 20);
+
+
+                //g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+ 
+                Point markerPt = boardPixelForSensorReading(sensorX, sensorY);
+ 
+                int r = 12; // marker radius
+                g2.setColor(new Color(255, 0, 0, 200));
+                g2.fillOval(markerPt.x - r, markerPt.y - r, r * 2, r * 2);
+                g2.setColor(Color.BLUE);
+                
+ 
+                g2.setColor(new Color(255, 0, 0, 120));
+                g2.drawLine(markerPt.x - r - 6, markerPt.y, markerPt.x + r + 6, markerPt.y);
+                g2.drawLine(markerPt.x, markerPt.y - r - 6, markerPt.x, markerPt.y + r + 6);
             }
         };
         sensorPanel.setOpaque(false);
-        frame.setGlassPane(sensorPanel);;
+        frame.setGlassPane(sensorPanel);
+        sensorPanel.setVisible(true);
         
 
         startButton.addActionListener(new ActionListener() {
@@ -132,6 +178,48 @@ public class WhackAMole {
         serialTest = new SerialTest(WhackAMole.this::handleSerialLine);
         serialTest.initialize();
     }
+
+    private static float clamp(float v, float min, float max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
+    private Point boardPixelForSensorReading(float rawX, float rawY) {
+        float normX = clamp(rawX / SENSOR_X_MAX, 0f, 1f);
+        float normY = clamp(rawY / SENSOR_Y_MAX, 0f, 1f);
+ 
+        Point boardOrigin = SwingUtilities.convertPoint(boardPanel, 0, 0, sensorPanel);
+ 
+        int px = boardOrigin.x + Math.round(normX * boardPanel.getWidth());
+        int py = boardOrigin.y + Math.round(normY * boardPanel.getHeight());
+        return new Point(px, py);
+    }
+
+    private int boardIndexForSensorReading(float rawX, float rawY) {
+        if (rawX < 0 || rawY < 0) return -1;
+        if (boardPanel.getWidth() == 0 || boardPanel.getHeight() == 0) return -1;
+ 
+        float normX = clamp(rawX / SENSOR_X_MAX, 0f, 1f);
+        float normY = clamp(rawY / SENSOR_Y_MAX, 0f, 1f);
+ 
+        int col = Math.min(GRID_COLS - 1, (int) (normX * GRID_COLS));
+        int row = Math.min(GRID_ROWS - 1, (int) (normY * GRID_ROWS));
+        return row * GRID_COLS + col;
+    }
+
+    private void checkForHit() {
+        if (currMoleTile == null || clicked == 1) return;
+ 
+        int idx = boardIndexForSensorReading(sensorX, sensorY);
+        if (idx < 0 || idx >= board.length) return;
+ 
+        if (board[idx] == currMoleTile) {
+            score += 10;
+            scoreLabel.setText("Score: " + score);
+            clicked = 1;
+            currMoleTile.setIcon(null);
+        }
+    }
+
 
     private void startGame() {
         sensorPanel.setVisible(true);
@@ -165,17 +253,6 @@ public class WhackAMole {
 
             board[i] = tile;
             boardPanel.add(tile);
-
-            tile.addActionListener(new ActionListener() {
-                public void actionPerformed(ActionEvent e) {
-                    JButton clickedTile = (JButton) e.getSource();
-                    if (clickedTile == currMoleTile && clicked != 1) {
-                        score += 10;
-                        scoreLabel.setText("Score: " + score);
-                        clicked = 1;
-                    }
-                }
-            });
         }
 
         boardPanel.revalidate();
@@ -183,7 +260,7 @@ public class WhackAMole {
         
         if(setMoleTimer != null) setMoleTimer.stop();
 
-        setMoleTimer = new Timer(1000, new ActionListener() {
+        setMoleTimer = new Timer(3000, new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 if (gameTimeSec == timeFrame) {
                     setMoleTimer.stop();
@@ -213,6 +290,8 @@ public class WhackAMole {
 
                 clicked = 0;
                 lastMoleTile = num;
+
+                checkForHit();
             }
         });
         setMoleTimer.start();
@@ -229,17 +308,21 @@ public class WhackAMole {
 
     private void handleSerialLine(String line) {
         lastSerialLine = line;
-        try {
-            int value = Integer.parseInt(line.trim());
-            if((value < lastLoc + 25) && (value > lastLoc - 25)) {
-                lastLoc = circleY;
-                circleY = value;
+
+        Matcher m = XY_PATTERN.matcher(line);
+        if (m.find()) {
+            try {
+                float newX = Float.parseFloat(m.group(1));
+                float newY = Float.parseFloat(m.group(2));
+                sensorX = newX;
+                sensorY = newY;
+                SwingUtilities.invokeLater(() -> {
+                    checkForHit();
+                    if (sensorPanel != null) sensorPanel.repaint();
+                });
+            } catch (NumberFormatException ex) {
+                // malformed number in an otherwise-matching line; ignore
             }
-            SwingUtilities.invokeLater(() -> {
-                if (sensorPanel != null) sensorPanel.repaint();
-            });
-        } catch (NumberFormatException ex) {
-            // ignore non-integer lines
         }
     }
 }

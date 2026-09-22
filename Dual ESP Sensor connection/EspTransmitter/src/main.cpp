@@ -4,19 +4,32 @@
 #include "esp_wifi.h"
 #include <Servo.h>
 
-uint8_t broadcastAddress[] = {0xE0, 0x5A, 0x1B, 0x1F, 0xD9, 0x20};
+//  trans mac = {0xE0, 0x5A, 0x1B, 0x1F, 0xD9, 0x20}; 
+
+uint8_t broadcastAddress[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04};
 
 const int WIFI_CHANNEL = 6;
 
-int trigPin = 18;
-int echoPin = 19;
+int trigPin1 = 18;
+int echoPin1 = 19;
 
-Servo myservo;
-int pos = 0;
-int servoPin = 32;
 
-int missCount = 0;
-int foundCount = 0;
+int baseline = 13;
+
+
+float S11 = 0;
+float S12 = 0;
+float S13 = 0;
+float S21 = 0;
+float S22 = 0;
+float S23 = 0;
+
+float Sensor1;
+float Sensor2;
+
+float x;
+float y;
+float theta;
 
 typedef struct StructMessage {
   int distance;
@@ -40,15 +53,47 @@ long measureDistance(int triggerPin, int echoPin)
   return duration * 0.0343 / 2;
 }
 
+void updateSensors() {
+   S11 = measureDistance(trigPin1, echoPin1);
+   //S12 = measureDistance();
+   //S13 = measureDistance();
+   //S21 = measureDistance(trigPin2, echoPin2);
+   //S22 = measureDistance();
+   //S23 = measureDistance();
+   Serial.print("S11: "); Serial.print(S11);
+   //Serial.print("  S21: "); Serial.println(S21);
+}
+
+
+
+
+void getLoc() {
+  updateSensors();
+
+  
+
+  if (S11>0 && S12==0 && S13==0){
+    Sensor1 = S11;
+  } else if (S12>0 && S11==0 && S13==0){
+      Sensor1 = S12;
+  } else if (S13>0 && S11==0 && S12==0){
+      Sensor1 = S13;
+  } else if (S11>0 && S12>0 && S13>0){
+      Sensor1 = S11;
+  }
+
+}
+
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
 
   esp_wifi_set_channel(WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
 
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
-  myservo.attach(servoPin);
+  pinMode(trigPin1, OUTPUT);
+  pinMode(echoPin1, INPUT);
+  //pinMode(trigPin2, OUTPUT);
+  //pinMode(echoPin2, INPUT);
 
   if(esp_now_init() != ESP_OK) {
     Serial.println("Error initialising ESP-NOW");
@@ -73,8 +118,13 @@ void setup() {
 
 void loop() {
   Serial.println(WiFi.macAddress());
+  getLoc();
 
-  message.distance = measureDistance(trigPin, echoPin);
+  message.distance = Sensor1;
+  // Serial.println("x: ");
+  // Serial.print(x);
+  // Serial.print(" y: ");
+  // Serial.print(y);
 
   esp_err_t outcome = esp_now_send(broadcastAddress, (uint8_t *) &message, sizeof(message));
 
@@ -83,57 +133,5 @@ void loop() {
   } else {
     Serial.println("Error sending the message");
   }
-
-  if(message.distance >= 150 || message.distance < 50 || message.distance == -1) {
-    missCount++;
-  } else {
-    missCount = 0;
-  }
-
-
-  if(missCount >= 3) {
-    Serial.println("Sweeping forward");
-    while(pos <= 270) {
-      pos += 5;
-      myservo.write(pos);
-      message.distance = measureDistance(trigPin, echoPin);
-      Serial.print("Distance: ");
-      Serial.println(message.distance);
-      if(message.distance < 150 && message.distance > 50){ 
-        foundCount ++;
-        if(foundCount >= 3) {
-        missCount = 0;
-        break; 
-        }
-      }
-      delay(100);
-      
-    }
-  }
-  if(missCount >= 3) {
-    Serial.println("Sweeping backward");
-    while(pos >= 0) {
-      pos -= 5;
-      myservo.write(pos);
-      message.distance = measureDistance(trigPin, echoPin);
-      Serial.print("Distance: ");
-      Serial.println(message.distance);
-      if(message.distance < 150 && message.distance > 50){ 
-        foundCount ++;
-        if(foundCount >= 3) {
-        missCount = 0;
-        break; 
-        }
-      }
-      delay(100);
-      
-    }
-  }
-
-  // Prints the distance on the Serial Monitor
-  Serial.println("");
-  Serial.print("Distance: ");
-  Serial.println(message.distance);
   delay(10);
-
 }

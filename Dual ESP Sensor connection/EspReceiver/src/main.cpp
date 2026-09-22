@@ -10,16 +10,13 @@
 const char* ssid = "ESP32_G34";
 const char* password = "123456789";
 
-// recv mac = E0:5A:1B:1F:D9:20
+// recv mac {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04}; 
 
 WiFiServer Server(80);
 
 String header;
 
 const int WIFI_CHANNEL = 6;
-
-Servo myservo;
-int pos = 0;
 
 unsigned long currentTime = millis();
 unsigned long prevTime = 0;
@@ -35,7 +32,21 @@ int remoteDistance = 0;
 int trigPin = 18;
 int echoPin = 19;
 
-int servoPin = 32;
+float S11 = 0;
+float S12 = 0;
+float S13 = 0;
+float S21 = 0;
+float S22 = 0;
+float S23 = 0;
+
+float Sensor1;
+float Sensor2;
+
+float x;
+float y;
+float theta;
+
+int baseline = 100; // distance between sensors
 
 typedef struct StructMessage {
   int distance;
@@ -43,7 +54,7 @@ typedef struct StructMessage {
 
 StructMessage message;
 
-uint8_t transmitterMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04}; 
+uint8_t transmitterMac[] = {0xE0, 0x5A, 0x1B, 0x1F, 0xD9, 0x20}; 
 
 void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
   // if (len != sizeof(StructMessage)) {
@@ -55,22 +66,9 @@ void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
     return;
   }
   memcpy(&message, incomingData, sizeof(message));
-  remoteDistance = message.distance;
+  Sensor2 = message.distance;
 }
 
-// void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
-//   memcpy(&message, incomingData, sizeof(message));
-  
-//   Serial.println("Bytes received: ");
-//   Serial.println(len);
-
-//   remoteDistance = message.distance;
-
-//   Serial.println("Integer: ");
-//   Serial.println(message.distance);
-
-  
-// }
 
 long measureDistance(int triggerPin, int echoPin)
 {
@@ -84,6 +82,56 @@ long measureDistance(int triggerPin, int echoPin)
   return duration * 0.0343 / 2;
 }
 
+void updateSensors() {
+   S11 = measureDistance(trigPin, echoPin);
+   //S12 = measureDistance();
+   //S13 = measureDistance();
+   //S21 = measureDistance(trigPin2, echoPin2);
+   //S22 = measureDistance();
+   //S23 = measureDistance();
+   //Serial.print("S11: "); Serial.print(S11);
+   //Serial.print("  S21: "); Serial.println(S21);
+}
+
+
+
+
+void getLoc() {
+  updateSensors();
+
+  
+
+  if (S11>0 && S12==0 && S13==0){
+    Sensor1 = S11;
+  } else if (S12>0 && S11==0 && S13==0){
+      Sensor1 = S12;
+  } else if (S13>0 && S11==0 && S12==0){
+      Sensor1 = S13;
+  } else if (S11>0 && S12>0 && S13>0){
+      Sensor1 = S11;
+  }
+
+  // if (S21>0 && S22==0 && S23==0){
+  //     Sensor2 = S21;
+  // } else if (S22>0 && S21==0 && S23==0){
+  //     Sensor2 = S22;
+  // } else if (S23>0 && S21==0 && S22==0){
+  //     Sensor2 = S23;
+  // } else if (S21>0 && S22>0 && S23>0){
+  //     Sensor2 = S21;
+  // }
+
+  if (Sensor1 > 0) {
+    theta=acos((((Sensor1*Sensor1)+(baseline*baseline)-(Sensor2*Sensor2)))/(2*Sensor1*baseline));
+  if(theta<3 && theta>0){               
+    x=Sensor1*cos(theta)+ baseline/2; 
+    y=Sensor1*sin(theta); 
+  } } else {
+    x = -1;
+    y = -1;
+  }
+}
+
 void setup(){
   Serial.begin(115200);
   if(!LittleFS.begin(true)) {
@@ -93,9 +141,7 @@ void setup(){
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  myservo.attach(servoPin);
 
-    
   WiFi.mode(WIFI_AP_STA);
   
   WiFi.softAP(ssid, password, WIFI_CHANNEL);
@@ -106,10 +152,6 @@ void setup(){
   }
 
   esp_now_register_recv_cb(dataRecv);
-  // Serial.print("Connecting to WiFi ..");
-
-  // Serial.println("IP Address");
-  // Serial.println(WiFi.softAPIP());
 
   Server.begin();
 
@@ -117,117 +159,15 @@ void setup(){
 
 void loop(){
   //Serial.println(WiFi.macAddress());
+  getLoc();
 
-  distance1 = measureDistance(trigPin, echoPin);
+  Serial.println();
+  Serial.print("x: ");
+  Serial.print(x);
+  Serial.print(" y: ");
+  Serial.print(y);
 
-  WiFiClient client = Server.available();   // Listen for incoming clients
-
-
-  if (client) {                             // If a new client connects,
-    currentTime = millis();
-    prevTime = currentTime;
-    // Serial.println("New Client.");          // print a message out in the serial port
-    String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected() && currentTime - prevTime <= timeout) {  // loop while the client's connected
-      currentTime = millis();
-      if (client.available()) {             // if there's bytes to read from the client,
-        char c = client.read();             // read a byte, then
-        // Serial.write(c);                    // print it out the serial monitor
-        header += c;
-        if (c == '\n') {  
-          // Serve JSON status for live updates
-          if (header.indexOf("GET /status") >= 0) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type: application/json");
-            client.println("Cache-Control: no-cache");
-            client.println("Connection: close");
-            client.println();
-            client.print("{\"distance1\":"); client.print(distance1); 
-            client.print(",\"remoteDistance\":"); client.print(remoteDistance); 
-            client.println("}");
-            client.println("");
-            break;
-          }  
-
-          
-
-          File file = LittleFS.open("/index.html", "r");
-          if (file) {
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println("Connection: close");
-            client.println();
-            while (file.available()) {
-              client.write(file.read());
-            }
-            file.close();
-            break;
-          }
-
-          else { // if you got a newline, then clear currentLine
-            currentLine = "";
-          }
-        } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
-        }
-      }
-    }
-    // Clear the header variable
-    header = "";
-    // Close the connection  
-    client.stop();
-    // Serial.println("Client disconnected.");
-    // Serial.println("");
-  }
-
-  // if(message.distance >= 150 || message.distance < 50 || message.distance == -1) {
-  //   missCount++;
-  // } else {
-  //   missCount = 0;
-  // }
-
-  // if(missCount >= 3) {
-  //   Serial.println("Sweeping forward");
-  //   while(pos <= 270) {
-  //     pos += 5;
-  //     myservo.write(pos);
-  //     distance1 = measureDistance(trigPin, echoPin);
-  //     Serial.print("Distance: ");
-  //     Serial.println(distance1);
-  //     if(distance1 < 150 && distance1 > 50){ 
-  //       missCount = 0;
-  //       break; 
-  //     }
-  //     delay(100);
-      
-  //   }
-  // }
-  // if(missCount >= 3) {
-  //   Serial.println("Sweeping backward");
-  //   while(pos >= 0) {
-  //     pos -= 5;
-  //     myservo.write(pos);
-  //     distance1 = measureDistance(trigPin, echoPin);
-  //     Serial.print("Distance: ");
-  //     Serial.println(distance1);
-  //     if(distance1 < 150 && distance1 > 50){ 
-  //       missCount = 0; 
-  //       break; }
-  //     delay(100);
-      
-  //   }
-  // }
-
-  // Prints the distance on the Serial Monitor
-  // Serial.println("");
-  // Serial.print("Distance: ");
-  Serial.println(distance1);
-
-  // Serial.println("");
-  // Serial.print("Remote Dist: ");
-  // Serial.println(remoteDistance);
-  delay(10);
-  
+  delay(100);
 }
 
 
