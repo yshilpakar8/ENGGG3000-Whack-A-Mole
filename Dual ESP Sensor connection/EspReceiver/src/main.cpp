@@ -13,6 +13,7 @@ const char* password = "123456789";
 // recv mac {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04}; 
 
 WiFiServer Server(80);
+WiFiClient client;
 
 String header;
 
@@ -32,21 +33,19 @@ int remoteDistance = 0;
 int trigPin = 18;
 int echoPin = 19;
 
-float S11 = 0;
-float S12 = 0;
-float S13 = 0;
-float S21 = 0;
-float S22 = 0;
-float S23 = 0;
+float S1 = 0;
+float S2 = 0;
+float S3 = 0;
 
-float Sensor1;
-float Sensor2;
+
+float localDist;
+float transDist;
 
 float x;
 float y;
 float theta;
 
-int baseline = 100; // distance between sensors
+float baseline = 150; // distance between sensors
 
 typedef struct StructMessage {
   int distance;
@@ -57,16 +56,11 @@ StructMessage message;
 uint8_t transmitterMac[] = {0xE0, 0x5A, 0x1B, 0x1F, 0xD9, 0x20}; 
 
 void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
-  // if (len != sizeof(StructMessage)) {
-  //   Serial.printf("Ignored packet: wrong size (%d bytes)\n", len);
-  //   return;
-  // }
   if (memcmp(mac_addr, transmitterMac, 6) != 0) {
-    //Serial.println("Ignored packet: unknown sender");
     return;
   }
   memcpy(&message, incomingData, sizeof(message));
-  Sensor2 = message.distance;
+  transDist = message.distance;
 }
 
 
@@ -81,9 +75,29 @@ long measureDistance(int triggerPin, int echoPin)
   long duration = pulseIn(echoPin, HIGH, 20000);
   return duration * 0.0343 / 2;
 }
+const uint8_t SMOOTHING_SAMPLES = 4;
+unsigned long lastSampleTime = 0;
+float distHistoryA[SMOOTHING_SAMPLES] = {0};
+float distHistoryB[SMOOTHING_SAMPLES] = {0};
+uint8_t historyIndex = 0;
+bool historyFilled = false;
+
+float smooth(float history[], float newValue) {
+  history[historyIndex] = newValue;
+
+  float sum = 0.0f;
+  uint8_t count = 0;
+  for (uint8_t i = 0; i < SMOOTHING_SAMPLES; i++) {
+    if (!isnan(history[i])) {
+      sum += history[i];
+      count++;
+    }
+  }
+  return (count > 0) ? (sum / count) : NAN;
+}
 
 void updateSensors() {
-   S11 = measureDistance(trigPin, echoPin);
+   S1 = measureDistance(trigPin, echoPin);
    //S12 = measureDistance();
    //S13 = measureDistance();
    //S21 = measureDistance(trigPin2, echoPin2);
@@ -93,50 +107,50 @@ void updateSensors() {
    //Serial.print("  S21: "); Serial.println(S21);
 }
 
+bool trilaterate(float d1, float d2, float baseline, float &x, float &y) {
+  if (isnan(d1) || isnan(d2)) return false;
 
+  x = (d1 * d1 - d2 * d2 + baseline * baseline) / (2.0f * baseline);
+
+  float ySquared = d1 * d1 - x * x;
+  if (ySquared < 0.0f) {
+    return false;
+  }
+
+  y = sqrt(ySquared);
+  return true;
+}
 
 
 void getLoc() {
   updateSensors();
 
-  
-
-  if (S11>0 && S12==0 && S13==0){
-    Sensor1 = S11;
-  } else if (S12>0 && S11==0 && S13==0){
-      Sensor1 = S12;
-  } else if (S13>0 && S11==0 && S12==0){
-      Sensor1 = S13;
-  } else if (S11>0 && S12>0 && S13>0){
-      Sensor1 = S11;
+  if (S1>0 && S2==0 && S3==0){
+    localDist = S1;
+  } else if (S2>0 && S1==0 && S3==0){
+      localDist = S2;
+  } else if (S3>0 && S1==0 && S2==0){
+      localDist = S3;
+  } else if (S1>0 && S2>0 && S3>0){
+      localDist = S1;
   }
 
-  // if (S21>0 && S22==0 && S23==0){
-  //     Sensor2 = S21;
-  // } else if (S22>0 && S21==0 && S23==0){
-  //     Sensor2 = S22;
-  // } else if (S23>0 && S21==0 && S22==0){
-  //     Sensor2 = S23;
-  // } else if (S21>0 && S22>0 && S23>0){
-  //     Sensor2 = S21;
-  // }
+  bool ok = trilaterate(localDist, transDist, baseline, x, y);
+}
 
-  if (Sensor1 > 0) {
-    theta=acos((((Sensor1*Sensor1)+(baseline*baseline)-(Sensor2*Sensor2)))/(2*Sensor1*baseline));
-  if(theta<3 && theta>0){               
-    x=Sensor1*cos(theta)+ baseline/2; 
-    y=Sensor1*sin(theta); 
-  } } else {
-    x = -1;
-    y = -1;
+void serviceClient() {
+  if (client && client.connected()) return;
+  WiFiClient incoming = Server.available();
+  if (incoming) {
+    client = incoming;
+    Serial.println("Java desktop app connected over WiFi.");
   }
 }
 
+
+
 void setup(){
   Serial.begin(115200);
-  if(!LittleFS.begin(true)) {
-    Serial.println("LittleFS mount failed");
-  }
   delay(100);
 
   pinMode(trigPin, OUTPUT);
@@ -145,6 +159,8 @@ void setup(){
   WiFi.mode(WIFI_AP_STA);
   
   WiFi.softAP(ssid, password, WIFI_CHANNEL);
+  Serial.print("AP IP address: ");
+  Serial.println(WiFi.softAPIP());
 
   if(esp_now_init() != ESP_OK) {
     Serial.println("Error initiailising ESP-NOW Link");
@@ -160,12 +176,18 @@ void setup(){
 void loop(){
   //Serial.println(WiFi.macAddress());
   getLoc();
+  serviceClient();
 
-  Serial.println();
-  Serial.print("x: ");
-  Serial.print(x);
-  Serial.print(" y: ");
-  Serial.print(y);
+  if(client && client.connected()) {
+    client.print("x: "); client.print(x);
+    client.print(" y: "); client.println(y);
+  }
+
+  // Serial.println();
+  // Serial.print("x: ");
+  // Serial.print(x);
+  // Serial.print(" y: ");
+  // Serial.print(y);
 
   delay(100);
 }

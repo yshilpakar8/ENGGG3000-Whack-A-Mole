@@ -17,15 +17,11 @@ int echoPin1 = 19;
 int baseline = 13;
 
 
-float S11 = 0;
-float S12 = 0;
-float S13 = 0;
-float S21 = 0;
-float S22 = 0;
-float S23 = 0;
+float S1 = 0;
+float S2 = 0;
+float S3 = 0;
 
-float Sensor1;
-float Sensor2;
+float distance;
 
 float x;
 float y;
@@ -54,13 +50,13 @@ long measureDistance(int triggerPin, int echoPin)
 }
 
 void updateSensors() {
-   S11 = measureDistance(trigPin1, echoPin1);
+   S1 = measureDistance(trigPin1, echoPin1);
    //S12 = measureDistance();
    //S13 = measureDistance();
    //S21 = measureDistance(trigPin2, echoPin2);
    //S22 = measureDistance();
    //S23 = measureDistance();
-   Serial.print("S11: "); Serial.print(S11);
+   Serial.print("S11: "); Serial.print(S1);
    //Serial.print("  S21: "); Serial.println(S21);
 }
 
@@ -70,16 +66,14 @@ void updateSensors() {
 void getLoc() {
   updateSensors();
 
-  
-
-  if (S11>0 && S12==0 && S13==0){
-    Sensor1 = S11;
-  } else if (S12>0 && S11==0 && S13==0){
-      Sensor1 = S12;
-  } else if (S13>0 && S11==0 && S12==0){
-      Sensor1 = S13;
-  } else if (S11>0 && S12>0 && S13>0){
-      Sensor1 = S11;
+  if (S1>0 && S2==0 && S3==0){
+    distance = S1;
+  } else if (S2>0 && S1==0 && S3==0){
+      distance = S2;
+  } else if (S3>0 && S1==0 && S2==0){
+      distance = S3;
+  } else if (S1>0 && S2>0 && S3>0){
+      distance = S1;
   }
 
 }
@@ -120,7 +114,7 @@ void loop() {
   Serial.println(WiFi.macAddress());
   getLoc();
 
-  message.distance = Sensor1;
+  message.distance = distance;
   // Serial.println("x: ");
   // Serial.print(x);
   // Serial.print(" y: ");

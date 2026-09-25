@@ -132,13 +132,6 @@ public class WhackAMole {
 
 
                 Graphics2D g2 = (Graphics2D) g;
-
-                // g2.setColor(Color.RED);
-                // g2.fillOval((int) sensorX, (int) sensorY, 19, 19);
-                // g2.drawOval((int) sensorX, (int) sensorY, 20, 20);
-
-
-                //g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
  
                 Point markerPt = boardPixelForSensorReading(sensorX, sensorY);
  

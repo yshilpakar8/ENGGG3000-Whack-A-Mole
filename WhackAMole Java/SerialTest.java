@@ -1,86 +1,78 @@
-import com.fazecast.jSerialComm.SerialPort;
-import com.fazecast.jSerialComm.SerialPortDataListener;
-import com.fazecast.jSerialComm.SerialPortEvent;
-
-import java.io.ByteArrayOutputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 
-public class SerialTest implements SerialPortDataListener {
+public class SerialTest {
 
-    SerialPort serialPort;
     private final Consumer<String> onLine;
 
-    private static final String PORT_NAME = "/dev/cu.usbserial-0001";
-    private static final int DATA_RATE = 115200;
+    // The receiver ESP32's AP IP is 192.168.4.1 by default (see WiFi.softAPIP() in its Serial log).
+    private static final String HOST = "192.168.4.1";
+    private static final int PORT = 80;
 
-    private final ByteArrayOutputStream lineBuffer = new ByteArrayOutputStream();
+    private static final int RECONNECT_DELAY_MS = 1000;
+
+    private volatile boolean running = false;
+    private Thread readerThread;
+    private Socket socket;
 
     public SerialTest(Consumer<String> onLine) {
         this.onLine = onLine;
     }
 
     public SerialTest() {
-        this(line -> System.out.println(line)); 
+        this(line -> System.out.println(line));
     }
 
-
     public void initialize() {
-        SerialPort chosenPort = SerialPort.getCommPort(PORT_NAME);
+        running = true;
+        readerThread = new Thread(this::connectAndReadLoop, "esp32-wifi-reader");
+        readerThread.setDaemon(true);
+        readerThread.start();
+    }
 
-        if (chosenPort == null) {
-            System.out.println("Could not find COM port.");
-            return;
+    private void connectAndReadLoop() {
+        while (running) {
+            try (Socket s = new Socket(HOST, PORT)) {
+                socket = s;
+                System.out.println("Connected to receiver ESP32 at " + HOST + ":" + PORT);
+
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
+
+                String line;
+                while (running && (line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (!line.isEmpty() && onLine != null) {
+                        onLine.accept(line);
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("WiFi connection to ESP32 lost/unavailable: " + e.getMessage());
+            }
+
+            socket = null;
+            if (running) {
+                try {
+                    Thread.sleep(RECONNECT_DELAY_MS);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
         }
-
-        serialPort = chosenPort;
-        serialPort.setBaudRate(DATA_RATE);
-        serialPort.setNumDataBits(8);
-        serialPort.setNumStopBits(SerialPort.ONE_STOP_BIT);
-        serialPort.setParity(SerialPort.NO_PARITY);
-
-        // Critical: without this, reads are non-blocking by default and
-        // can misbehave with BufferedReader / event-based reading on macOS.
-        serialPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 0, 0);
-
-        if (!serialPort.openPort()) {
-            System.err.println("Failed to open port.");
-            return;
-        }
-
-        serialPort.addDataListener(this);
-        System.out.println("Opened " + PORT_NAME + " at " + DATA_RATE + " baud.");
     }
 
     public synchronized void close() {
-        if (serialPort != null) {
-            serialPort.removeDataListener();
-            serialPort.closePort();
+        running = false;
+        try {
+            if (socket != null) socket.close();
+        } catch (IOException ignored) {
         }
-    }
-
-    @Override
-    public int getListeningEvents() {
-        // DATA_RECEIVED is far more reliable than DATA_AVAILABLE on macOS usbserial adapters
-        return SerialPort.LISTENING_EVENT_DATA_RECEIVED;
-    }
-
-    @Override
-    public synchronized void serialEvent(SerialPortEvent event) {
-        if (event.getEventType() != SerialPort.LISTENING_EVENT_DATA_RECEIVED) return;
-
-        byte[] newData = event.getReceivedData();
-        for (byte b : newData) {
-            if (b == '\n') {
-                String line = lineBuffer.toString(StandardCharsets.UTF_8).trim();
-                lineBuffer.reset();
-                if (!line.isEmpty() && onLine != null) {
-                    onLine.accept(line);
-                }
-            } else if (b != '\r') {
-                lineBuffer.write(b);
-            }
-        }
+        if (readerThread != null) readerThread.interrupt();
     }
 
     public static void main(String[] args) throws Exception {
