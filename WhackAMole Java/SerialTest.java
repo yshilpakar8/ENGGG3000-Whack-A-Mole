@@ -9,7 +9,7 @@ public class SerialTest {
 
     private final Consumer<String> onLine;
 
-    // The receiver ESP32's AP IP is 192.168.4.1 by default (see WiFi.softAPIP() in its Serial log).
+
     private static final String HOST = "192.168.4.1";
     private static final int PORT = 80;
 
