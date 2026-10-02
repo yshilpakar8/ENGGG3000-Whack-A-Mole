@@ -28,11 +28,17 @@ typedef struct StructMessage {
 
 StructMessage message;
 
+volatile uint32_t sendStartUs = 0;
+volatile uint32_t lastElapsedUs = 0;
+volatile bool sendDone = false;
+volatile bool sendOk = false;
+
 void dataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  if (status != ESP_NOW_SEND_SUCCESS) {
-    Serial.println("Delivery fail");
-  }
+  lastElapsedUs = micros() - sendStartUs;
+  sendOk = (status == ESP_NOW_SEND_SUCCESS);
+  sendDone = true;
 }
+
 
 struct SensorFilter {
   float hist[FILTER_WINDOW];
@@ -134,10 +140,28 @@ void setup() {
 
 void loop() {
   updateSensors();
-  //Serial.println(WiFi.macAddress());
 
+  sendDone = false;
+  sendStartUs = micros();
   esp_err_t outcome = esp_now_send(receiverMac, (uint8_t *)&message, sizeof(message));
   if (outcome != ESP_OK) {
-    Serial.println("Error sending the message");
+    Serial.printf("Error sending the message (err=%d)\n", outcome);
+  }
+
+  // Wait briefly for the callback so we can report this send's result
+  unsigned long waitStart = millis();
+  while (!sendDone && millis() - waitStart < 50) {
+    delay(1);
+  }
+
+  if (sendDone) {
+    if (sendOk) {
+      Serial.printf("Delivery OK - %lu us (%.2f ms)\n",
+                    (unsigned long)lastElapsedUs, lastElapsedUs / 1000.0f);
+    } else {
+      Serial.printf("Delivery fail - %lu us\n", (unsigned long)lastElapsedUs);
+    }
+  } else {
+    Serial.println("No send callback within 50 ms");
   }
 }

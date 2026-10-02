@@ -51,6 +51,7 @@ portMUX_TYPE remoteMux = portMUX_INITIALIZER_UNLOCKED;
 float remoteDist[NUM_SENSORS] = {-1.0f, -1.0f, -1.0f};
 unsigned long lastRemoteUpdateMs = 0;
 
+
 void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
   if (memcmp(mac_addr, transmitterMac, 6) != 0) return;
   if (len != (int)sizeof(StructMessage)) return;
@@ -309,10 +310,10 @@ void loop() {
     static unsigned long lastPrint = 0;
     if (millis() - lastPrint >= DEBUG_INTERVAL_MS) {
       lastPrint = millis();
-      Serial.printf("L[%.0f %.0f %.0f] R[%.0f %.0f %.0f] pairs=%d  x=%.1f y=%.1f\n",
+      Serial.printf("L[%.0f %.0f %.0f] R[%.0f %.0f %.0f]  x=%.1f y=%.1f\n",
                     localDist[0], localDist[1], localDist[2],
-                    remoteDist[0], remoteDist[1], remoteDist[2],
-                    candCount, x, y);
+                    remoteDist[0], remoteDist[1], remoteDist[2]
+                    , x, y);
     }
   }
 }
