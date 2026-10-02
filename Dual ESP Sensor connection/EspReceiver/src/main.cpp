@@ -9,6 +9,7 @@ const int WIFI_CHANNEL = 6;
 
 
 uint8_t transmitterMac[] = {0xE0, 0x5A, 0x1B, 0x1F, 0xD9, 0x20};
+//uint8_t transmitterMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04};
 
 WiFiServer Server(80);
 WiFiClient client;
@@ -18,7 +19,7 @@ const float BASELINE_CM = 150.0f;
 const float LOCAL_X_OFF[NUM_SENSORS]  = {0.0f, 0.0f, 0.0f};
 const float REMOTE_X_OFF[NUM_SENSORS] = {0.0f, 0.0f, 0.0f};
 
-const int TRIG_PINS[NUM_SENSORS] = {18, 16, 12};
+const int TRIG_PINS[NUM_SENSORS] = {18, 16, 14};
 const int ECHO_PINS[NUM_SENSORS] = {19, 17, 13};
 
 const float MIN_VALID_CM = 3.0f;
@@ -296,6 +297,7 @@ void setup() {
 }
 
 void loop() {
+  //Serial.println(WiFi.softAPmacAddress());
   getLoc();
   serviceClient();
 

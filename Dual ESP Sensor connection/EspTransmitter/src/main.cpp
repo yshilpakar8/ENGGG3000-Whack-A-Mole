@@ -3,13 +3,14 @@
 #include <WiFi.h>
 #include "esp_wifi.h"
 
-uint8_t receiverMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04};
+uint8_t receiverMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x05};
+//uint8_t receiverMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04};
 
 const int WIFI_CHANNEL = 6;
 
 
 const int NUM_SENSORS = 3;
-const int TRIG_PINS[NUM_SENSORS] = {18, 16, 12};
+const int TRIG_PINS[NUM_SENSORS] = {18, 16, 14};
 const int ECHO_PINS[NUM_SENSORS] = {19, 17, 13};
 
 const float MIN_VALID_CM = 3.0f;
@@ -93,9 +94,18 @@ void setup() {
   Serial.begin(115200);
 
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
   esp_wifi_set_promiscuous(true);
-  esp_wifi_set_channel(WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  esp_err_t chErr = esp_wifi_set_channel(WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
   esp_wifi_set_promiscuous(false);
+
+  uint8_t ch; wifi_second_chan_t sc;
+  esp_wifi_get_channel(&ch, &sc);
+  Serial.printf("set_channel=%d, channel now=%u\n", chErr, ch);
+  Serial.println(WiFi.macAddress()); 
+
+  
 
   for (int i = 0; i < NUM_SENSORS; i++) {
     pinMode(TRIG_PINS[i], OUTPUT);
@@ -124,6 +134,7 @@ void setup() {
 
 void loop() {
   updateSensors();
+  //Serial.println(WiFi.macAddress());
 
   esp_err_t outcome = esp_now_send(receiverMac, (uint8_t *)&message, sizeof(message));
   if (outcome != ESP_OK) {
