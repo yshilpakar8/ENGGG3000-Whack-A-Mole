@@ -541,7 +541,7 @@ private void updateWarningSound() {
                     break;
     
                 case 3:
-                    moleDisplayTime = 2000; //needs to change to 1000
+                    moleDisplayTime = 1000; 
                     numberOfMoles = 2;
                     break;
     
