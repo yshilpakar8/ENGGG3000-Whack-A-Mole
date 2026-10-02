@@ -499,6 +499,7 @@ public class WhackAMole {
     }
 } /* */
 
+import javax.sound.sampled.Clip;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -523,6 +524,13 @@ public class WhackAMole {
     static final boolean USE_MOUSE = true;   // set to false for real sensors
     volatile boolean mouseInBoard = false;
     volatile float mouseRawX, mouseRawY;
+
+    static final boolean SOUND_ON = true;
+    static final long WARN_REPEAT_MS = 1500;   // repeat interval while still in a warning zone
+
+    Clip closeClip, offClip;
+    Zone lastWarnZone = Zone.NO_FIX;
+    long lastWarnMs = 0;
 
     int score;
     int clicked = 0;
@@ -747,15 +755,31 @@ public class WhackAMole {
         boardPanel.add(startButton, BorderLayout.CENTER);
         frame.add(boardPanel, BorderLayout.CENTER);
 
+        
+
         Image moleImg = new ImageIcon(getClass().getResource("./mole.png")).getImage();
         moleIcon = new ImageIcon(moleImg.getScaledInstance(150, 150, Image.SCALE_SMOOTH));
 
-        // ---- Glass pane: player marker + warning banners ----
+        if (SOUND_ON) {
+        closeClip = makeTone(880, 150, 2);   // TOO_CLOSE: two high beeps
+        offClip   = makeTone(440, 300, 1);   // OFF_BOARD: one long low beep
+        }
+
+         // ---- Glass pane: player marker + warning banners ----
         sensorPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Fix fix = tracker.get();
+                new Timer(16, e -> {
+                if (USE_MOUSE && mouseInBoard) {
+                    tracker.onSample(mouseRawX, mouseRawY, System.currentTimeMillis());
+                }
+                tracker.tick();
+                updateWarningSound();      // <-- new
+                checkForHit();
+                sensorPanel.repaint();
+            }).start();
                 Zone zone = zoneFor(fix);
                 if (zone == Zone.NO_FIX) {
                     return;
@@ -798,6 +822,65 @@ public class WhackAMole {
         sensorPanel.setOpaque(false);
         frame.setGlassPane(sensorPanel);
         sensorPanel.setVisible(true);
+
+        /** Builds a short beep (or several) as an in-memory audio clip. */
+private static Clip makeTone(int hz, int beepMs, int beeps) {
+    try {
+        float rate = 44100f;
+        int beepSamples = (int) (rate * beepMs / 1000);
+        int gapSamples  = (int) (rate * 0.06f);
+        int total = beeps * beepSamples + (beeps - 1) * gapSamples;
+        byte[] buf = new byte[total * 2];          // 16-bit mono
+
+        int pos = 0;
+        for (int b = 0; b < beeps; b++) {
+            for (int i = 0; i < beepSamples; i++) {
+                // 5 ms fade in/out so it doesn't click
+                double env = Math.min(1.0, Math.min(i, beepSamples - i) / (rate * 0.005));
+                short v = (short) (Math.sin(2 * Math.PI * hz * i / rate) * env * 0.4 * Short.MAX_VALUE);
+                buf[pos++] = (byte) (v & 0xff);            // little-endian
+                buf[pos++] = (byte) ((v >> 8) & 0xff);
+            }
+            if (b < beeps - 1) pos += gapSamples * 2;      // silence between beeps
+        }
+
+        AudioFormat fmt = new AudioFormat(rate, 16, 1, true, false);
+        Clip clip = AudioSystem.getClip();
+        clip.open(fmt, buf, 0, buf.length);
+        return clip;
+    } catch (Exception ex) {
+        System.err.println("Audio unavailable: " + ex.getMessage());
+        return null;                                        // game still works silently
+    }
+}
+
+private void playClip(Clip c) {
+    if (c == null) return;
+    c.stop();
+    c.setFramePosition(0);
+    c.start();                                              // asynchronous, won't freeze the UI
+}
+
+/** Beeps on entering TOO_CLOSE / OFF_BOARD and repeats while the player stays there. */
+private void updateWarningSound() {
+    if (!SOUND_ON) return;
+
+    boolean running = setMoleTimer != null && setMoleTimer.isRunning();
+    Zone z = zoneFor(tracker.get());
+    boolean warn = running && (z == Zone.TOO_CLOSE || z == Zone.OFF_BOARD);
+
+    if (!warn) {
+        lastWarnZone = Zone.NO_FIX;      // so re-entering a zone beeps immediately
+        return;
+    }
+
+    long now = System.currentTimeMillis();
+    if (z != lastWarnZone || now - lastWarnMs >= WARN_REPEAT_MS) {
+        playClip(z == Zone.TOO_CLOSE ? closeClip : offClip);
+        lastWarnMs = now;
+    }
+    lastWarnZone = z;
+
 
         // ~60 fps: ease the displayed position, check for hits, repaint the marker.
         new Timer(16, e -> {

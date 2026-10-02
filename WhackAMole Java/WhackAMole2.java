@@ -232,7 +232,7 @@ public class WhackAMole2 {
         retryButton.setText("RETRY");
         retryButton.setSize(50, 50);    
 
-        boardPanel.add(startButton, BorderLayout.CENTER);
+        //boardPanel.add(startButton, BorderLayout.CENTER);
         frame.add(boardPanel, BorderLayout.CENTER);
 
         scoreLabel.setFont(new Font("Arial", Font.PLAIN, 20));
@@ -335,13 +335,13 @@ public class WhackAMole2 {
         frame.setGlassPane(sensorPanel);
         sensorPanel.setVisible(true);
 
-        // ~60 fps: ease the displayed position, check for hits, repaint the marker.
-        new Timer(16, e -> {
-            tracker.tick();
-
-            checkForHit();
-            sensorPanel.repaint();
-        }).start();        
+       // ~60 fps: ease the displayed position, check for hits, repaint the marker.
+    new Timer(16, e -> {
+    tracker.tick();
+    updateWarningSound();      // <-- the only new line
+    checkForHit();
+    sensorPanel.repaint();
+    }).start(); 
 
         startButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -357,6 +357,9 @@ public class WhackAMole2 {
                 startGame();
             }
         });
+
+        showStartScreen();
+        frame.setVisible(true);
 
         frame.setVisible(true);
 
@@ -617,6 +620,7 @@ private void updateWarningSound() {
         levelLabel.setText("Level: 1");
     
         boardPanel.removeAll();
+        boardPanel.setLayout(new GridLayout(3, 3));  
     
         for (int i = 0; i < 9; i++) {
     
@@ -739,9 +743,83 @@ private void updateWarningSound() {
         moleTimer.start();
     }
 
+    private JLabel makeLabel(String text, int style, int size, Color color) {
+    JLabel l = new JLabel(text);
+    l.setFont(new Font("Arial", style, size));
+    l.setForeground(color);
+    l.setAlignmentX(Component.CENTER_ALIGNMENT);
+    return l;
+}
+
+private void showStartScreen() {
+    sensorPanel.setVisible(false);
+
+    boardPanel.removeAll();
+    boardPanel.setLayout(new BorderLayout());
+
+    JPanel startPanel = new JPanel();
+    startPanel.setLayout(new BoxLayout(startPanel, BoxLayout.Y_AXIS));
+    startPanel.setBackground(new Color(220, 235, 245));
+    startPanel.setBorder(BorderFactory.createEmptyBorder(30, 40, 30, 40));
+
+    Color dark  = new Color(40, 40, 40);
+    Color green = new Color(30, 130, 60);
+    Color red   = new Color(190, 30, 30);
+
+    startPanel.add(Box.createVerticalGlue());
+    startPanel.add(makeLabel("WHACK A MOLE", Font.BOLD, 44, red));
+    startPanel.add(Box.createVerticalStrut(8));
+    startPanel.add(makeLabel("Gameplay Rules", Font.BOLD, 24, dark));
+    startPanel.add(Box.createVerticalStrut(18));
+
+    startPanel.add(makeLabel("DO", Font.BOLD, 20, green));
+    startPanel.add(Box.createVerticalStrut(4));
+    String[] dos = {
+        "Step onto the tile with a mole to whack it (+10 points)",
+        "Stay on the play board, at least " + (int) NEAR_LIMIT_CM + " cm from the sensors",
+        "Listen for the warning beeps if you leave the zone",
+        "Score as much as you can before the timer runs out"
+    };
+    for (String d : dos) {
+        startPanel.add(makeLabel("\u2022 " + d, Font.PLAIN, 16, dark));
+        startPanel.add(Box.createVerticalStrut(3));
+    }
+
+    startPanel.add(Box.createVerticalStrut(14));
+
+    startPanel.add(makeLabel("DON'T", Font.BOLD, 20, red));
+    startPanel.add(Box.createVerticalStrut(4));
+    String[] donts = {
+        "Don't stand too close to the sensors, you'll get a warning beep",
+        "Don't walk off the play board, you'll get a warning beep",
+        "Don't stand still - moles get faster every 30 seconds!"
+    };
+    for (String d : donts) {
+        startPanel.add(makeLabel("\u2022 " + d, Font.PLAIN, 16, dark));
+        startPanel.add(Box.createVerticalStrut(3));
+    }
+
+    startPanel.add(Box.createVerticalStrut(25));
+
+    startButton.setText("START GAME");
+    startButton.setFont(new Font("Arial", Font.BOLD, 22));
+    startButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+    startButton.setMaximumSize(new Dimension(220, 60));
+    startButton.setPreferredSize(new Dimension(220, 60));
+    startButton.setFocusPainted(false);
+    startPanel.add(startButton);
+    startPanel.add(Box.createVerticalGlue());
+
+    boardPanel.add(startPanel, BorderLayout.CENTER);
+    boardPanel.revalidate();
+    boardPanel.repaint();
+}
+
     private void showRetryButton() {
     // Hide the red sensor dot on the end screen
     sensorPanel.setVisible(false);
+
+    
 
     // Remove the game board
     boardPanel.removeAll();
