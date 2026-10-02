@@ -1,5 +1,5 @@
 public class App {
     public static void main(String[] args) throws Exception {
-        WhackAMole whackAMole = new WhackAMole();
+        WhackAMole2 whackAMole2 = new WhackAMole2();
     }
 }

@@ -6,6 +6,13 @@
       "name": "App",
       "request": "launch",
       "mainClass": "App",
+      "projectName": "ENGGG3000-Whack-A-Mole_f039cfa"
+    },
+    {
+      "type": "java",
+      "name": "App",
+      "request": "launch",
+      "mainClass": "App",
       "projectName": "ENGGG3000-Whack-A-Mole_38c4ca2e"
     },
     {
