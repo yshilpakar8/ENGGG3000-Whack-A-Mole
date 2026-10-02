@@ -18,6 +18,7 @@ public class WhackAMole2 {
 
     int score;
     int clicked = 0;
+    int clicked2 = 0;
 
     String lastSerialLine = "";   
 
@@ -486,7 +487,9 @@ private void updateWarningSound() {
     }
 
     private void checkForHit() {
-        if (currMoleTile == null || clicked == 1) return;
+        if (currMoleTile == null || clicked == 1) {
+            if (secondMoleTile == null || clicked2 == 1) return;
+        }
 
         Fix fix = tracker.get();
         if (zoneFor(fix) != Zone.ON_BOARD) return;
@@ -499,6 +502,11 @@ private void updateWarningSound() {
             scoreLabel.setText("Score: " + score);
             clicked = 1;
             currMoleTile.setIcon(null);
+        } else if (board[idx] == secondMoleTile) {
+            score += 10;
+            scoreLabel.setText("Score: " + score);
+            clicked2 = 1;
+            secondMoleTile.setIcon(null);
         }
     }
 
@@ -533,7 +541,7 @@ private void updateWarningSound() {
                     break;
     
                 case 3:
-                    moleDisplayTime = 1000;
+                    moleDisplayTime = 2000; //needs to change to 1000
                     numberOfMoles = 2;
                     break;
     
@@ -595,6 +603,7 @@ private void updateWarningSound() {
         score = 0;
         gameTimeSec = 0;
         clicked = 0;
+        clicked2 = 0;
     
         level = 1;
         moleDisplayTime = 2000;
@@ -644,14 +653,21 @@ private void updateWarningSound() {
     
                     JButton clickedTile = (JButton) e.getSource();
     
-                    if ((clickedTile == currMoleTile ||
-                         clickedTile == secondMoleTile)
-                         && clicked != 1) {
+                    if (clickedTile == currMoleTile && clicked != 1) {
     
                         score += 10;
                         scoreLabel.setText("Score: " + score);
-    
+
+                        clickedTile.setIcon(null);
+
                         clicked = 1;
+                    } else if (clickedTile == secondMoleTile && clicked2 != 1) {
+                        score += 10;
+                        scoreLabel.setText("Score: " + score);
+
+                        clickedTile.setIcon(null);
+
+                        clicked2 = 1;
                     }
                 }
             });
@@ -713,6 +729,7 @@ private void updateWarningSound() {
             public void actionPerformed(ActionEvent e) {
     
                 clicked = 0;
+                clicked2 = 0;
     
                 spawnMoles();
             }
