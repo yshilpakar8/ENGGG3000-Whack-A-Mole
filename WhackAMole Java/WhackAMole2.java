@@ -19,6 +19,7 @@ public class WhackAMole2 {
     int score;
     int clicked = 0;
     int clicked2 = 0;
+    int life = 3;
 
     String lastSerialLine = "";   
 
@@ -171,6 +172,8 @@ public class WhackAMole2 {
     JPanel sidePanel = new JPanel();
     JLabel levelLabel = new JLabel();
     JPanel levelPanel = new JPanel();
+    JLabel lifeLabel = new JLabel();
+    JPanel lifePanel = new JPanel();
 
     JLabel timerLabel = new JLabel();
     JPanel timerPanel = new JPanel();
@@ -252,8 +255,16 @@ public class WhackAMole2 {
         levelLabel.setText("Level: 1");
         levelLabel.setOpaque(true);
 
+        lifeLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        lifeLabel.setHorizontalAlignment(JLabel.CENTER);
+        lifeLabel.setText("Lives: 3");
+        lifeLabel.setOpaque(true);
+
         levelPanel.setLayout(new BorderLayout());
         levelPanel.add(levelLabel);
+
+        lifePanel.setLayout(new BorderLayout());
+        lifePanel.add(lifeLabel);
         //
 
         timerPanel.setLayout(new BorderLayout());
@@ -262,16 +273,13 @@ public class WhackAMole2 {
         scorePanel.setLayout(new BorderLayout());
         scorePanel.add(scoreLabel);
 
-        //added
-        levelPanel.setLayout(new BorderLayout());
-        levelPanel.add(levelLabel);
-        //
 
         //changed
-        sidePanel.setLayout(new GridLayout(3, 1, 0, 20));
+        sidePanel.setLayout(new GridLayout(4, 1, 0, 20));
         sidePanel.setPreferredSize(new Dimension(450, 0));
 
         sidePanel.add(timerPanel);
+        sidePanel.add(lifePanel);
         sidePanel.add(scorePanel);
         sidePanel.add(levelPanel);
 
@@ -564,8 +572,52 @@ private void updateWarningSound() {
     }
 
     //added
+    private void loseLife() {
+        life--;
+    
+        updateLife();
+    
+        if (life <= 0) {
+            life = 0;
+            updateLife();
+    
+            if (gameTimer != null) {
+                gameTimer.stop();
+            }
+    
+            if (moleTimer != null) {
+                moleTimer.stop();
+            }
+    
+            for (int i = 0; i < board.length; i++) {
+                board[i].setEnabled(false);
+                board[i].setIcon(null);
+            }
+    
+            showRetryButton();
+        }
+    }
+
+    private void updateLife() {
+        lifeLabel.setText("Lives: " + life);
+    }
+
+    //added
     private void spawnMoles() {
 
+        // Check whether the previous mole(s) were hit.
+        // If not, the player loses a life.
+    
+        boolean missedMole = false;
+    
+        if (currMoleTile != null && clicked != 1) {
+            missedMole = true;
+        }
+    
+        if (secondMoleTile != null && clicked2 != 1) {
+            missedMole = true;
+        }
+    
         // Remove old moles
         if (currMoleTile != null) {
             currMoleTile.setIcon(null);
@@ -577,13 +629,28 @@ private void updateWarningSound() {
             secondMoleTile = null;
         }
     
-        // First mole
+        // Reset hit states
+        clicked = 0;
+        clicked2 = 0;
+    
+        // Lose a life if a mole was missed
+        if (missedMole) {
+            loseLife();
+    
+            // If the player has no lives left,
+            // don't spawn another mole.
+            if (life <= 0) {
+                return;
+            }
+        }
+    
+        // Spawn first mole
         int firstNum = random.nextInt(9);
     
         currMoleTile = board[firstNum];
         currMoleTile.setIcon(moleIcon);
     
-        // Second mole for Levels 3 and 4
+        // Spawn second mole for Levels 3 and 4
         if (numberOfMoles == 2) {
     
             int secondNum = random.nextInt(9);
@@ -607,6 +674,9 @@ private void updateWarningSound() {
         gameTimeSec = 0;
         clicked = 0;
         clicked2 = 0;
+        life = 3;
+
+        updateLife();
     
         level = 1;
         moleDisplayTime = 2000;
