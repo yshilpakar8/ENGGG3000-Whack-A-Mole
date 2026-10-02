@@ -698,10 +698,6 @@ private void updateWarningSound() {
                         board[i].setIcon(null);
                     }
     
-                    scoreLabel.setText(
-                        "GAME OVER - SCORE: " + score
-                    );
-    
                     showRetryButton();
                     return;
                 }
@@ -727,13 +723,58 @@ private void updateWarningSound() {
     }
 
     private void showRetryButton() {
-        boardPanel.removeAll();
-        boardPanel.setLayout(new BorderLayout());
-        boardPanel.add(retryButton, BorderLayout.CENTER);
-        boardPanel.revalidate();
-        boardPanel.repaint();
-    }
+    // Hide the red sensor dot on the end screen
+    sensorPanel.setVisible(false);
 
+    // Remove the game board
+    boardPanel.removeAll();
+    boardPanel.setLayout(new BorderLayout());
+
+    // Main end screen
+    JPanel endPanel = new JPanel();
+    endPanel.setLayout(new BoxLayout(endPanel, BoxLayout.Y_AXIS));
+    endPanel.setBackground(new Color(220, 235, 245));
+    endPanel.setBorder(BorderFactory.createEmptyBorder(60, 60, 60, 60));
+
+    // GAME OVER
+    JLabel gameOverLabel = new JLabel("GAME OVER");
+    gameOverLabel.setFont(new Font("Arial", Font.BOLD, 50));
+    gameOverLabel.setForeground(Color.RED);
+    gameOverLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+    // Final score
+    JLabel finalScoreLabel = new JLabel("Final Score: " + score);
+    finalScoreLabel.setFont(new Font("Arial", Font.BOLD, 30));
+    finalScoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+    // Level reached
+    JLabel finalLevelLabel = new JLabel("Level Reached: " + level);
+    finalLevelLabel.setFont(new Font("Arial", Font.PLAIN, 26));
+    finalLevelLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+    // Retry button
+    retryButton.setText("PLAY AGAIN");
+    retryButton.setFont(new Font("Arial", Font.BOLD, 22));
+    retryButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+    retryButton.setMaximumSize(new Dimension(220, 60));
+    retryButton.setPreferredSize(new Dimension(220, 60));
+    retryButton.setFocusPainted(false);
+
+    // everything else 
+    endPanel.add(Box.createVerticalGlue());
+    endPanel.add(gameOverLabel);
+    endPanel.add(Box.createVerticalStrut(35));
+    endPanel.add(finalScoreLabel);
+    endPanel.add(Box.createVerticalStrut(20));
+    endPanel.add(finalLevelLabel);
+    endPanel.add(Box.createVerticalStrut(45));
+    endPanel.add(retryButton);
+    endPanel.add(Box.createVerticalGlue());
+    boardPanel.add(endPanel, BorderLayout.CENTER);
+
+    boardPanel.revalidate();
+    boardPanel.repaint();
+}
 
     // Runs on the serial reader thread; only parses and hands the raw sample to the tracker. 
     private void handleSerialLine(String line) {
