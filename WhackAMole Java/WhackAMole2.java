@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.sound.sampled.*;
 
 public class WhackAMole2 {
 
@@ -28,6 +29,12 @@ public class WhackAMole2 {
     static final float NEAR_LIMIT_CM = 30f;
     static final float PLAY_Y_MIN = NEAR_LIMIT_CM;
     static final float PLAY_Y_MAX = 200f;
+    static final boolean SOUND_ON = true;
+    static final long WARN_REPEAT_MS = 1500;   // repeat interval while still in a warning zone
+
+    Clip closeClip, offClip;
+    Zone lastWarnZone = Zone.NO_FIX;
+    long lastWarnMs = 0;
 
     static final boolean MIRROR_X = true; // x needs to be mirrored if recv esp on the right of player
 
@@ -275,6 +282,10 @@ public class WhackAMole2 {
         Image moleImg = new ImageIcon(getClass().getResource("./mole.png")).getImage();
         moleIcon = new ImageIcon(moleImg.getScaledInstance(150, 150, Image.SCALE_SMOOTH));
 
+        if (SOUND_ON) {
+            closeClip = makeTone(880, 150, 2);   // TOO_CLOSE: two high beeps
+            offClip   = makeTone(440, 300, 1);   // OFF_BOARD: one long low beep
+        }
         sensorPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -326,6 +337,7 @@ public class WhackAMole2 {
         // ~60 fps: ease the displayed position, check for hits, repaint the marker.
         new Timer(16, e -> {
             tracker.tick();
+
             checkForHit();
             sensorPanel.repaint();
         }).start();        
@@ -350,6 +362,65 @@ public class WhackAMole2 {
         serialTest = new SerialTest(WhackAMole2.this::handleSerialLine);
         serialTest.initialize();
     }
+
+    /** Builds a short beep (or several) as an in-memory audio clip. */
+private static Clip makeTone(int hz, int beepMs, int beeps) {
+    try {
+        float rate = 44100f;
+        int beepSamples = (int) (rate * beepMs / 1000);
+        int gapSamples  = (int) (rate * 0.06f);
+        int total = beeps * beepSamples + (beeps - 1) * gapSamples;
+        byte[] buf = new byte[total * 2];          // 16-bit mono
+
+        int pos = 0;
+        for (int b = 0; b < beeps; b++) {
+            for (int i = 0; i < beepSamples; i++) {
+                // 5 ms fade in/out so it doesn't click
+                double env = Math.min(1.0, Math.min(i, beepSamples - i) / (rate * 0.005));
+                short v = (short) (Math.sin(2 * Math.PI * hz * i / rate) * env * 0.4 * Short.MAX_VALUE);
+                buf[pos++] = (byte) (v & 0xff);            // little-endian
+                buf[pos++] = (byte) ((v >> 8) & 0xff);
+            }
+            if (b < beeps - 1) pos += gapSamples * 2;      // silence between beeps
+        }
+
+        AudioFormat fmt = new AudioFormat(rate, 16, 1, true, false);
+        Clip clip = AudioSystem.getClip();
+        clip.open(fmt, buf, 0, buf.length);
+        return clip;
+    } catch (Exception ex) {
+        System.err.println("Audio unavailable: " + ex.getMessage());
+        return null;                                        // game still works silently
+    }
+}
+
+private void playClip(Clip c) {
+    if (c == null) return;
+    c.stop();
+    c.setFramePosition(0);
+    c.start();                                              // asynchronous, won't freeze the UI
+}
+
+/** Beeps on entering TOO_CLOSE / OFF_BOARD and repeats while the player stays there. */
+private void updateWarningSound() {
+    if (!SOUND_ON) return;
+
+    boolean running = moleTimer != null && moleTimer.isRunning();
+    Zone z = zoneFor(tracker.get());
+    boolean warn = running && (z == Zone.TOO_CLOSE || z == Zone.OFF_BOARD);
+
+    if (!warn) {
+        lastWarnZone = Zone.NO_FIX;      // so re-entering a zone beeps immediately
+        return;
+    }
+
+    long now = System.currentTimeMillis();
+    if (z != lastWarnZone || now - lastWarnMs >= WARN_REPEAT_MS) {
+        playClip(z == Zone.TOO_CLOSE ? closeClip : offClip);
+        lastWarnMs = now;
+    }
+    lastWarnZone = z;
+}
 
     private static float clamp(float v, float min, float max) {
         return Math.max(min, Math.min(max, v));
