@@ -507,6 +507,7 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.sound.sampled.*;
 
 public class WhackAMole {
 
@@ -822,6 +823,7 @@ public class WhackAMole {
         sensorPanel.setOpaque(false);
         frame.setGlassPane(sensorPanel);
         sensorPanel.setVisible(true);
+    }
 
         /** Builds a short beep (or several) as an in-memory audio clip. */
 private static Clip makeTone(int hz, int beepMs, int beeps) {
