@@ -60,7 +60,7 @@ public class WhackAMole2 {
         }
     }
 
-    static final class PlayerTracker {
+    /*static final class PlayerTracker {
         static final int MEDIAN_WINDOW = 1;        
         static final float MAX_JUMP_CM = 50f;      // biggest jump in position allowed
         static final int RELOCK_SAMPLES = 5;       // consecutive reposition tracker
@@ -161,7 +161,101 @@ public class WhackAMole2 {
             Arrays.sort(tmp);
             return (n % 2 == 1) ? tmp[n / 2] : (tmp[n / 2 - 1] + tmp[n / 2]) / 2f;
         }
+    }*/
+
+     static final class PlayerTracker {
+    static final int AVG_WINDOW = 8;           // readings averaged (use 6-10)
+    static final int MIN_SAMPLES = 6;          // readings needed before a position is reported
+    static final float MAX_JUMP_CM = 50f;      // biggest jump from the current average allowed
+    static final int RELOCK_SAMPLES = 5;       // consecutive far-away readings before re-averaging
+    static final float DISPLAY_TAU_MS = 60f;
+    static final long STALE_MS = 500;          // no readings for this long -> start over
+
+    private final double[] winX = new double[AVG_WINDOW];
+    private final double[] winY = new double[AVG_WINDOW];
+    private int winCount = 0;
+    private int winHead = 0;
+
+    private boolean init = false;              // true once MIN_SAMPLES have been averaged
+    private float targetX, targetY;
+    private float dispX, dispY;
+    private long lastFixMs = 0;
+    private int rejectStreak = 0;
+    private long lastTickNs = 0;
+
+    synchronized void onSample(float rx, float ry, long nowMs) {
+        if (Float.isNaN(rx) || Float.isNaN(ry)
+                || Float.isInfinite(rx) || Float.isInfinite(ry) || ry < 0) {
+            return;
+        }
+
+        // No readings for a while: forget everything and start a fresh average
+        if (nowMs - lastFixMs > STALE_MS) {
+            clearWindow();
+            init = false;
+        }
+
+        // Reject wild jumps compared with the current average
+        if (winCount > 0) {
+            double jump = Math.hypot(rx - avgX(), ry - avgY());
+            if (jump > MAX_JUMP_CM) {
+                rejectStreak++;
+                if (rejectStreak < RELOCK_SAMPLES) {
+                    return;
+                }
+                clearWindow();   // the player really moved: re-average from here
+            }
+        }
+        rejectStreak = 0;
+
+        // Add to the window (the oldest value is overwritten once it is full)
+        winX[winHead] = rx;
+        winY[winHead] = ry;
+        winHead = (winHead + 1) % AVG_WINDOW;
+        if (winCount < AVG_WINDOW) winCount++;
+        lastFixMs = nowMs;
+
+        // Only report a position once enough readings have been averaged
+        if (winCount >= MIN_SAMPLES) {
+            targetX = (float) avgX();
+            targetY = (float) avgY();
+            if (!init) {                 // first lock: show it straight away
+                dispX = targetX;
+                dispY = targetY;
+                init = true;
+            }
+        }
     }
+
+    private double avgX() { return Arrays.stream(winX, 0, winCount).average().orElse(0); }
+    private double avgY() { return Arrays.stream(winY, 0, winCount).average().orElse(0); }
+
+    private void clearWindow() {
+        winCount = 0;
+        winHead = 0;
+        rejectStreak = 0;
+    }
+
+    synchronized void tick() {
+        long nowNs = System.nanoTime();
+        if (!init) {
+            lastTickNs = nowNs;
+            return;
+        }
+        float dtMs = (nowNs - lastTickNs) / 1_000_000f;
+        lastTickNs = nowNs;
+        dtMs = Math.max(0f, Math.min(dtMs, 100f));
+
+        float a = 1f - (float) Math.exp(-dtMs / DISPLAY_TAU_MS);
+        dispX += (targetX - dispX) * a;
+        dispY += (targetY - dispY) * a;
+    }
+
+    synchronized Fix get() {
+        boolean valid = init && (System.currentTimeMillis() - lastFixMs) < STALE_MS;
+        return new Fix(dispX, dispY, valid);
+    }
+}   
 
     final PlayerTracker tracker = new PlayerTracker();
     JPanel sensorPanel;
