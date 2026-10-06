@@ -31,7 +31,7 @@ public class WhackAMole2 {
     static final float PLAY_X_MAX = BASELINE_CM;
     static final float NEAR_LIMIT_CM = 30f;
     static final float PLAY_Y_MIN = NEAR_LIMIT_CM;
-    static final float PLAY_Y_MAX = 170f;
+    static final float PLAY_Y_MAX = 160f;
     static final boolean SOUND_ON = true;
     static final long WARN_REPEAT_MS = 1500;   // repeat interval while still in a warning zone
 
@@ -62,7 +62,7 @@ public class WhackAMole2 {
 
     /*static final class PlayerTracker {
         static final int MEDIAN_WINDOW = 1;        
-        static final float MAX_JUMP_CM = 50f;      // biggest jump in position allowed
+        static final float MAX_JUMP_CM = 20f;      // biggest jump in position allowed
         static final int RELOCK_SAMPLES = 5;       // consecutive reposition tracker
         static final float MEASURE_ALPHA = 0.7f;   
         static final float DISPLAY_TAU_MS = 60f;   
