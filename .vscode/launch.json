@@ -3,6 +3,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "WhackAMoleTest",
+      "request": "launch",
+      "mainClass": "WhackAMoleTest",
+      "projectName": "ENGGG3000-Whack-A-Mole_38c4ca2e"
+    },
+    {
+      "type": "java",
       "name": "App",
       "request": "launch",
       "mainClass": "App",
