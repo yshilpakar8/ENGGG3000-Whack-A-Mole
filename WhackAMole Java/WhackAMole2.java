@@ -31,7 +31,7 @@ public class WhackAMole2 {
     static final float PLAY_X_MAX = BASELINE_CM;
     static final float NEAR_LIMIT_CM = 30f;
     static final float PLAY_Y_MIN = NEAR_LIMIT_CM;
-    static final float PLAY_Y_MAX = 160f;
+    static final float PLAY_Y_MAX = 170f;
     static final boolean SOUND_ON = true;
     static final long WARN_REPEAT_MS = 1500;   // repeat interval while still in a warning zone
 
@@ -62,7 +62,7 @@ public class WhackAMole2 {
 
     /*static final class PlayerTracker {
         static final int MEDIAN_WINDOW = 1;        
-        static final float MAX_JUMP_CM = 20f;      // biggest jump in position allowed
+        static final float MAX_JUMP_CM = 50f;      // biggest jump in position allowed
         static final int RELOCK_SAMPLES = 5;       // consecutive reposition tracker
         static final float MEASURE_ALPHA = 0.7f;   
         static final float DISPLAY_TAU_MS = 60f;   
@@ -163,7 +163,7 @@ public class WhackAMole2 {
         }
     }*/
 
-     static final class PlayerTracker {
+    /* working static final class PlayerTracker {
     static final int AVG_WINDOW = 8;           // readings averaged (use 6-10)
     static final int MIN_SAMPLES = 6;          // readings needed before a position is reported
     static final float MAX_JUMP_CM = 50f;      // biggest jump from the current average allowed
@@ -255,7 +255,129 @@ public class WhackAMole2 {
         boolean valid = init && (System.currentTimeMillis() - lastFixMs) < STALE_MS;
         return new Fix(dispX, dispY, valid);
     }
-}   
+}   */
+
+    static final class PlayerTracker {
+    static final int AVG_WINDOW = 8;           // readings averaged (use 6-10)
+    static final int MIN_SAMPLES = 6;          // readings needed before a position is reported
+    static final float MAX_JUMP_CM = 50f;      // reading this far from the average is rejected as an outlier
+    static final int RELOCK_SAMPLES = 5;       // consecutive far readings before we accept the new place
+    static final float DEADBAND_CM = 3f;       // movement smaller than this is ignored (kills still-standing jitter)
+    static final float MAX_SPEED_CM_S = 200f;  // fastest believable player speed (limits jumps)
+    static final float DISPLAY_TAU_MS = 60f;
+    static final long STALE_MS = 500;          // no readings for this long -> start over
+
+    private final double[] winX = new double[AVG_WINDOW];
+    private final double[] winY = new double[AVG_WINDOW];
+    private int winCount = 0;
+    private int winHead = 0;
+
+    private boolean init = false;              // true once MIN_SAMPLES have been averaged
+    private boolean snapNext = false;          // after a relock, jump straight to the new average
+    private float targetX, targetY;
+    private float dispX, dispY;
+    private long lastFixMs = 0;
+    private int rejectStreak = 0;
+    private long lastTickNs = 0;
+
+    synchronized void onSample(float rx, float ry, long nowMs) {
+        if (Float.isNaN(rx) || Float.isNaN(ry)
+                || Float.isInfinite(rx) || Float.isInfinite(ry) || ry < 0) {
+            return;
+        }
+
+        long dtMs = nowMs - lastFixMs;         // time since the previous accepted reading
+
+        // No readings for a while: forget everything and start a fresh average
+        if (dtMs > STALE_MS) {
+            clearWindow();
+            init = false;
+        }
+
+        // Reject wild jumps compared with the current average
+        if (winCount > 0) {
+            double jump = Math.hypot(rx - avgX(), ry - avgY());
+            if (jump > MAX_JUMP_CM) {
+                rejectStreak++;
+                if (rejectStreak < RELOCK_SAMPLES) {
+                    return;
+                }
+                clearWindow();                 // the player really moved: re-average from here
+                snapNext = true;
+            }
+        }
+        rejectStreak = 0;
+
+        // Add to the window (the oldest value is overwritten once it is full)
+        winX[winHead] = rx;
+        winY[winHead] = ry;
+        winHead = (winHead + 1) % AVG_WINDOW;
+        if (winCount < AVG_WINDOW) winCount++;
+        lastFixMs = nowMs;
+
+        if (winCount < MIN_SAMPLES) return;    // not enough readings yet
+
+        float ax = (float) avgX();
+        float ay = (float) avgY();
+
+        // First lock, or the player really relocated: take the average directly
+        if (!init) {
+            targetX = ax;  targetY = ay;
+            dispX = ax;    dispY = ay;
+            init = true;
+            snapNext = false;
+            return;
+        }
+        if (snapNext) {
+            targetX = ax;  targetY = ay;
+            snapNext = false;
+            return;
+        }
+
+        // Deadband: tiny differences are jitter, so hold still
+        float dx = ax - targetX, dy = ay - targetY;
+        float dist = (float) Math.hypot(dx, dy);
+        if (dist <= DEADBAND_CM) return;
+
+        // Real movement: trail the average by the deadband, but never faster than MAX_SPEED_CM_S
+        float move = dist - DEADBAND_CM;
+        float dtClamped = Math.max(10f, Math.min(dtMs, 200f));
+        float maxStep = MAX_SPEED_CM_S * dtClamped / 1000f;
+        move = Math.min(move, maxStep);
+
+        targetX += dx / dist * move;
+        targetY += dy / dist * move;
+    }
+
+    private double avgX() { return Arrays.stream(winX, 0, winCount).average().orElse(0); }
+    private double avgY() { return Arrays.stream(winY, 0, winCount).average().orElse(0); }
+
+    private void clearWindow() {
+        winCount = 0;
+        winHead = 0;
+        rejectStreak = 0;
+    }
+
+    synchronized void tick() {
+        long nowNs = System.nanoTime();
+        if (!init) {
+            lastTickNs = nowNs;
+            return;
+        }
+        float dtMs = (nowNs - lastTickNs) / 1_000_000f;
+        lastTickNs = nowNs;
+        dtMs = Math.max(0f, Math.min(dtMs, 100f));
+
+        float a = 1f - (float) Math.exp(-dtMs / DISPLAY_TAU_MS);
+        dispX += (targetX - dispX) * a;
+        dispY += (targetY - dispY) * a;
+    }
+
+    synchronized Fix get() {
+        boolean valid = init && (System.currentTimeMillis() - lastFixMs) < STALE_MS;
+        return new Fix(dispX, dispY, valid);
+    }
+}
 
     final PlayerTracker tracker = new PlayerTracker();
     JPanel sensorPanel;
