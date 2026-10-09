@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include "esp_wifi.h"
+#include <time.h>
 
 const char* ssid = "ESP32_G34";
 const char* password = "123456789";
@@ -13,9 +14,6 @@ uint8_t rightMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04};
 WiFiServer Server(80);
 WiFiClient client;
 
-// ----------------------------- Geometry -------------------------------------
-// X position (cm) of every sensor along the front line. MEASURE THESE.
-//   Index order: left ESP s0, s1 | centre ESP s0, s1 | right ESP s0, s1
 const float BASELINE_CM = 150.0f;                 // distance left corner ESP to right corner ESP
 const float CENTRE_X    = BASELINE_CM / 2.0f;     // centre ESP mounting position
 const float SENSOR_PITCH_CM = 5.0f;              // spacing between the 2 sensors on one board
@@ -23,6 +21,9 @@ const float SENSOR_PITCH_CM = 5.0f;              // spacing between the 2 sensor
 const int NUM_UNITS = 3;                          // 0 = left, 1 = centre, 2 = right
 const int SENSORS_PER_UNIT = 2;
 const int TOTAL_SENSORS = NUM_UNITS * SENSORS_PER_UNIT;
+
+
+
 
 const float SENSOR_X[TOTAL_SENSORS] = {
   0.0f,                           0.0f + SENSOR_PITCH_CM,                  // left unit
@@ -378,6 +379,8 @@ void setup() {
 void loop() {
   getLoc();
   serviceClient();
+
+  
 
   if (client && client.connected()) {
     client.printf("x: %.1f y: %.1f\n", x, y);

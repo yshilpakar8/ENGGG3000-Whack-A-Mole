@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.time.Instant;
 import javax.sound.sampled.*;
 
 public class WhackAMole2 {
@@ -730,6 +731,7 @@ private void updateWarningSound() {
     
     /** Draws a simple top-down (circular) mallet head centred on point p (the player's position). */
     private void drawMallet(Graphics2D g0, Point p, Zone zone) {
+        System.out.println("Drawing: " + Instant.now()); 
         Graphics2D g = (Graphics2D) g0.create();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -1476,6 +1478,7 @@ private void showStartScreen() {
 
     // Runs on the serial reader thread; only parses and hands the raw sample to the tracker. 
     private void handleSerialLine(String line) {
+        System.out.println("Reading: " + Instant.now()); 
         lastSerialLine = line;
 
         Matcher m = XY_PATTERN.matcher(line);
