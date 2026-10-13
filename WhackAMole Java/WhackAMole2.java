@@ -355,8 +355,8 @@ public class WhackAMole2 {
         Image fullHeartImg = new ImageIcon(getClass().getResource("./full-heart.png")).getImage();
         Image emptyHeartImg = new ImageIcon(getClass().getResource("./empty-heart.png")).getImage();
 
-        fullHeartIcon = new ImageIcon(fullHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
-        emptyHeartIcon = new ImageIcon(emptyHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
+        fullHeartIcon = new ImageIcon(fullHeartImg.getScaledInstance(75, 75,Image.SCALE_SMOOTH));
+        emptyHeartIcon = new ImageIcon(emptyHeartImg.getScaledInstance(75, 75,Image.SCALE_SMOOTH));
 
         boardPanel.setOpaque(false);
         
@@ -420,7 +420,7 @@ frame.add(boardContainer, BorderLayout.CENTER);
         lifeLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         lifeLabel.setHorizontalAlignment(JLabel.CENTER);
         lifeLabel.setText("Lives");
-        //lifeLabel.setOpaque(true);
+        lifeLabel.setOpaque(true);
 
         lifeLabel1 = new JLabel(fullHeartIcon, SwingConstants.TRAILING);
         lifeLabel2 = new JLabel(fullHeartIcon);
