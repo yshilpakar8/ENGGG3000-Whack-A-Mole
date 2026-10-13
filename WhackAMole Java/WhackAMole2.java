@@ -400,19 +400,19 @@ boardContainer.add(boardPanel);
 
 frame.add(boardContainer, BorderLayout.CENTER);
 
-        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         scoreLabel.setHorizontalAlignment(JLabel.CENTER);
         scoreLabel.setText("Score: 0");
         scoreLabel.setOpaque(true);
 
-        timerLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        timerLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         timerLabel.setHorizontalAlignment(JLabel.CENTER);
         timerLabel.setText("Timer: " + timeFrame);
 
         timerLabel.setOpaque(true);
 
         //added
-        levelLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        levelLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         levelLabel.setHorizontalAlignment(JLabel.CENTER);
         levelLabel.setText("Level: 1");
         levelLabel.setOpaque(true);
