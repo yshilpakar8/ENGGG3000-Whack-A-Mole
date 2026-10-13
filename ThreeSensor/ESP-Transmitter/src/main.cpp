@@ -1,10 +1,3 @@
-// ============================================================================
-//  CORNER TRANSMITTER  (ESP #2 and #3 of 3)
-//  Flash the SAME code to both the LEFT and RIGHT corner ESPs.
-//  The centre receiver tells them apart by their MAC address, so the only
-//  thing to configure is the centre receiver's softAP MAC below.
-//  Each unit has 2 ultrasonic sensors facing into the play area.
-// ============================================================================
 #include <Arduino.h>
 #include <esp_now.h>
 #include <WiFi.h>

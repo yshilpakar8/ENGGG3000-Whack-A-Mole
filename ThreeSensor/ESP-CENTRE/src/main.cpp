@@ -44,23 +44,26 @@ const unsigned long SENSOR_GAP_MS = 5;
 const uint8_t FILTER_WINDOW = 5;
 const uint8_t FILTER_MIN_VALID = 3;
 
+
+
 // ----------------------------- Tracking tuning -------------------------------
 const unsigned long REMOTE_TIMEOUT_MS = 150;   // remote data older than this is ignored (must be > 2x the transmitters' send period)
 const unsigned long HOLD_MS = 300;             // keep last position this long after losing it
 const float CLUSTER_CM = 15.0f;                // candidates within this of each other count as agreeing
 const float MAX_JUMP_CM = 20.0f;               // bigger jumps are treated as outliers and are ignored
-const uint8_t RELOCK_CYCLES = 3;               // consecutive "far away" fixes needed before snapping to them
+const uint8_t RELOCK_CYCLES = 10;               // consecutive "far away" fixes needed before snapping to them
 
 // Geometry quality: a sensor pair is only trusted when its two circles cross at a
 // decent angle. sin(angle) near 0 means tiny range errors become huge position errors.
-const float MIN_GEOM_SIN = 0.30f;              // ~17 degrees. Raise if still noisy, lower if you lose coverage
-const float TRACK_PRIOR_CM = 40.0f;            // candidates near the current track are favoured (smaller = stickier)
+const float MIN_GEOM_SIN = 0.15f;              // ~17 degrees. Raise if still noisy, lower if you lose coverage
+const float TRACK_PRIOR_CM = 20.0f;            // candidates near the current track are favoured (smaller = stickier)
 const uint8_t ACQUIRE_MIN_CANDS = 2;           // agreeing candidates needed to START tracking (set 1 if targets are missed)
 
 // One Euro filter (smooths hard when still, follows quickly when moving)
-const float MIN_CUTOFF_HZ = 1.5f;              // LOWER = less jitter when still, more lag
+const float MIN_CUTOFF_HZ = 0.5f;              // LOWER = less jitter when still, more lag
 const float BETA          = 0.04f;             // HIGHER = less lag when moving fast, more jitter while moving
 const float D_CUTOFF_HZ   = 1.0f;              // smoothing of the speed estimate; rarely needs changing
+
 
 const bool DEBUG_PRINT = true;
 const unsigned long DEBUG_INTERVAL_MS = 250;

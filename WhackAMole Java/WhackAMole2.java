@@ -61,8 +61,8 @@ public class WhackAMole2 {
     }
 
     static final class PlayerTracker {
-        static final int MEDIAN_WINDOW = 1;        
-        static final float MAX_JUMP_CM = 20f;      // biggest jump in position allowed
+        static final int MEDIAN_WINDOW = 10;        
+        static final float MAX_JUMP_CM = 20;      // biggsest jump in position allowed
         static final int RELOCK_SAMPLES = 5;       // consecutive reposition tracker
         static final float MEASURE_ALPHA = 0.7f;   
         static final float DISPLAY_TAU_MS = 60f;   
