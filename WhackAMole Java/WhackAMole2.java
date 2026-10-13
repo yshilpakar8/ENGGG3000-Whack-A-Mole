@@ -355,8 +355,8 @@ public class WhackAMole2 {
         Image fullHeartImg = new ImageIcon(getClass().getResource("./full-heart.png")).getImage();
         Image emptyHeartImg = new ImageIcon(getClass().getResource("./empty-heart.png")).getImage();
 
-        fullHeartIcon = new ImageIcon(fullHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
-        emptyHeartIcon = new ImageIcon(emptyHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
+        fullHeartIcon = new ImageIcon(fullHeartImg.getScaledInstance(75, 75,Image.SCALE_SMOOTH));
+        emptyHeartIcon = new ImageIcon(emptyHeartImg.getScaledInstance(75, 75,Image.SCALE_SMOOTH));
 
         boardPanel.setOpaque(false);
         
@@ -400,19 +400,19 @@ boardContainer.add(boardPanel);
 
 frame.add(boardContainer, BorderLayout.CENTER);
 
-        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         scoreLabel.setHorizontalAlignment(JLabel.CENTER);
         scoreLabel.setText("Score: 0");
         scoreLabel.setOpaque(true);
 
-        timerLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        timerLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         timerLabel.setHorizontalAlignment(JLabel.CENTER);
         timerLabel.setText("Timer: " + timeFrame);
 
         timerLabel.setOpaque(true);
 
         //added
-        levelLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        levelLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         levelLabel.setHorizontalAlignment(JLabel.CENTER);
         levelLabel.setText("Level: 1");
         levelLabel.setOpaque(true);
@@ -420,7 +420,7 @@ frame.add(boardContainer, BorderLayout.CENTER);
         lifeLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         lifeLabel.setHorizontalAlignment(JLabel.CENTER);
         lifeLabel.setText("Lives");
-        //lifeLabel.setOpaque(true);
+        lifeLabel.setOpaque(true);
 
         lifeLabel1 = new JLabel(fullHeartIcon, SwingConstants.TRAILING);
         lifeLabel2 = new JLabel(fullHeartIcon);
