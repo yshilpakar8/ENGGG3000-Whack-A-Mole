@@ -8,6 +8,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.time.Instant;
 import javax.sound.sampled.*;
+import javax.swing.SwingConstants;
+
 
 public class WhackAMole2 {
 
@@ -391,6 +393,9 @@ public class WhackAMole2 {
     JLabel levelLabel = new JLabel();
     JPanel levelPanel = new JPanel();
     JLabel lifeLabel = new JLabel();
+    JLabel lifeLabel1 = new JLabel();
+    JLabel lifeLabel2 = new JLabel();
+    JLabel lifeLabel3 = new JLabel();
     JPanel lifePanel = new JPanel();
 
     JLabel timerLabel = new JLabel();
@@ -423,9 +428,10 @@ public class WhackAMole2 {
 
     ImageIcon moleIcon;
     ImageIcon grassIcon;
+    ImageIcon fullHeartIcon;
+    ImageIcon emptyHeartIcon;
     Image grassImg;
     Image holeImg;
-
 
     JButton currMoleTile;
     JButton secondMoleTile;
@@ -463,6 +469,13 @@ public class WhackAMole2 {
 
         grassImg = new ImageIcon(getClass().getResource("./grass.png")).getImage();
         holeImg = new ImageIcon(getClass().getResource("./hole.png")).getImage();
+
+        Image fullHeartImg = new ImageIcon(getClass().getResource("./full-heart.png")).getImage();
+        Image emptyHeartImg = new ImageIcon(getClass().getResource("./empty-heart.png")).getImage();
+
+        fullHeartIcon = new ImageIcon(fullHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
+        emptyHeartIcon = new ImageIcon(emptyHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
+
         boardPanel.setOpaque(false);
         boardPanel.setSize(600, 600);
         
@@ -493,16 +506,27 @@ public class WhackAMole2 {
         levelLabel.setText("Level: 1");
         levelLabel.setOpaque(true);
 
-        lifeLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        lifeLabel.setFont(new Font("Arial", Font.PLAIN, 30));
         lifeLabel.setHorizontalAlignment(JLabel.CENTER);
-        lifeLabel.setText("Lives: 3");
-        lifeLabel.setOpaque(true);
+        lifeLabel.setText("Lives");
+        //lifeLabel.setOpaque(true);
+
+        lifeLabel1 = new JLabel(fullHeartIcon, SwingConstants.TRAILING);
+        lifeLabel2 = new JLabel(fullHeartIcon);
+        lifeLabel3 = new JLabel(fullHeartIcon, SwingConstants.LEADING);
 
         levelPanel.setLayout(new BorderLayout());
         levelPanel.add(levelLabel);
 
         lifePanel.setLayout(new BorderLayout());
+        lifePanel.add(new JLabel(""));
         lifePanel.add(lifeLabel);
+        lifePanel.add(new JLabel(""));
+
+        lifePanel.add(lifeLabel1);
+        lifePanel.add(lifeLabel2);
+        lifePanel.add(lifeLabel3);
+        
         //
 
         timerPanel.setLayout(new BorderLayout());
@@ -918,7 +942,20 @@ private void updateWarningSound() {
     }
 
     private void updateLife() {
-        lifeLabel.setText("Lives: " + life);
+        //lifeLabel.setText("Lives: " + life);
+
+        
+        if (life == 3) {
+            lifeLabel1.setIcon(fullHeartIcon);
+            lifeLabel2.setIcon(fullHeartIcon);
+            lifeLabel3.setIcon(fullHeartIcon);
+        } else if (life == 2) {
+            lifeLabel3.setIcon(emptyHeartIcon);
+        } else if (life == 1) {
+            lifeLabel2.setIcon(emptyHeartIcon);
+        } else if (life == 0) {
+            lifeLabel1.setIcon(emptyHeartIcon);
+        }
     }
 
     //added
@@ -1317,8 +1354,9 @@ private void updateWarningSound() {
     private void showGameSidePanel() {
         sidePanel.removeAll();
         sidePanel.setLayout(new GridLayout(4, 1, 0, 20));
-        sidePanel.add(timerPanel);
+        lifePanel.setLayout(new GridLayout(2, 3, 0, 20));
         sidePanel.add(lifePanel);
+        sidePanel.add(timerPanel);
         sidePanel.add(scorePanel);
         sidePanel.add(levelPanel);
         sidePanel.revalidate();
