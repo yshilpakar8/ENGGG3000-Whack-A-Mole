@@ -366,35 +366,35 @@ private static final class StatLabel extends JLabel {
     }
 }
 
-private static java.awt.geom.Path2D heartShape(float x, float y, float w, float h) {
-    java.awt.geom.Path2D.Float p = new java.awt.geom.Path2D.Float();
-    p.moveTo(x + w / 2, y + h);
-    p.curveTo(x - w * 0.15f, y + h * 0.55f, x + w * 0.05f, y - h * 0.1f, x + w / 2, y + h * 0.3f);
-    p.curveTo(x + w * 0.95f, y - h * 0.1f, x + w * 1.15f, y + h * 0.55f, x + w / 2, y + h);
-    p.closePath();
-    return p;
-}
+// private static java.awt.geom.Path2D heartShape(float x, float y, float w, float h) {
+//     java.awt.geom.Path2D.Float p = new java.awt.geom.Path2D.Float();
+//     p.moveTo(x + w / 2, y + h);
+//     p.curveTo(x - w * 0.15f, y + h * 0.55f, x + w * 0.05f, y - h * 0.1f, x + w / 2, y + h * 0.3f);
+//     p.curveTo(x + w * 0.95f, y - h * 0.1f, x + w * 1.15f, y + h * 0.55f, x + w / 2, y + h);
+//     p.closePath();
+//     return p;
+// }
 
-// Three hearts: red for lives left, pale grey for lives lost
-private final JPanel heartsPanel = new JPanel() {
-    @Override protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        int slots = 3;
-        int h = Math.min(getHeight() - 30, 60);
-        int w = (int) (h * 1.1);
-        int gap = w / 3;
-        int total = slots * w + (slots - 1) * gap;
-        int x0 = (getWidth() - total) / 2;
-        int y0 = (getHeight() - h) / 2;
-        for (int i = 0; i < slots; i++) {
-            g2.setColor(i < life ? new Color(255, 90, 95) : new Color(215, 222, 230));
-            g2.fill(heartShape(x0 + i * (w + gap), y0, w, h));
-        }
-        g2.dispose();
-    }
-};
+// // Three hearts: red for lives left, pale grey for lives lost
+// private final JPanel heartsPanel = new JPanel() {
+//     @Override protected void paintComponent(Graphics g) {
+//         super.paintComponent(g);
+//         Graphics2D g2 = (Graphics2D) g.create();
+//         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+//         int slots = 3;
+//         int h = Math.min(getHeight() - 30, 60);
+//         int w = (int) (h * 1.1);
+//         int gap = w / 3;
+//         int total = slots * w + (slots - 1) * gap;
+//         int x0 = (getWidth() - total) / 2;
+//         int y0 = (getHeight() - h) / 2;
+//         for (int i = 0; i < slots; i++) {
+//             g2.setColor(i < life ? new Color(255, 90, 95) : new Color(215, 222, 230));
+//             g2.fill(heartShape(x0 + i * (w + gap), y0, w, h));
+//         }
+//         g2.dispose();
+//     }
+// };
 
 private JPanel makeStatCard(JComponent value, String caption) {
     JPanel card = new JPanel(new GridBagLayout());
@@ -430,8 +430,10 @@ private JPanel makeStatCard(JComponent value, String caption) {
         Image fullHeartImg = new ImageIcon(getClass().getResource("./full-heart.png")).getImage();
         Image emptyHeartImg = new ImageIcon(getClass().getResource("./empty-heart.png")).getImage();
 
-        fullHeartIcon = new ImageIcon(fullHeartImg.getScaledInstance(75, 75,Image.SCALE_SMOOTH));
-        emptyHeartIcon = new ImageIcon(emptyHeartImg.getScaledInstance(75, 75,Image.SCALE_SMOOTH));
+        fullHeartIcon = new ImageIcon(fullHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
+        emptyHeartIcon = new ImageIcon(emptyHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
+
+        updateLife();
 
         boardPanel.setOpaque(false);
         
@@ -486,11 +488,46 @@ for (JLabel l : new JLabel[] { timerLabel, scoreLabel, levelLabel }) {
 timerLabel.setText("Timer: " + timeFrame);
 scoreLabel.setText("Score: 0");
 levelLabel.setText("Level: 1");
-lifeLabel.setText("Lives: 3");          // not shown any more, the hearts show the lives
+//lifeLabel.setText("Lives: 3");          // not shown any more, the hearts show the lives
 
-heartsPanel.setBackground(Color.WHITE);
+//heartsPanel.setBackground(Color.WHITE);
 
-lifePanel  = makeStatCard(heartsPanel, "Lives");
+// Lives card: three heart images on top, caption underneath
+lifePanel = new JPanel(new GridBagLayout());
+lifePanel.setBackground(Color.WHITE);
+
+GridBagConstraints gbc = new GridBagConstraints();
+gbc.gridx = 0;
+gbc.gridy = 0;
+gbc.weightx = 1;
+gbc.weighty = 0.62;
+gbc.fill = GridBagConstraints.BOTH;
+
+JPanel heartsPanel = new JPanel(new GridLayout(1, 3, 0, 20));
+heartsPanel.setOpaque(false);
+
+lifeLabel1.setHorizontalAlignment(JLabel.TRAILING);
+lifeLabel2.setHorizontalAlignment(JLabel.CENTER);
+lifeLabel3.setHorizontalAlignment(JLabel.LEADING);
+
+heartsPanel.add(lifeLabel1);
+heartsPanel.add(lifeLabel2);
+heartsPanel.add(lifeLabel3);
+
+lifePanel.add(heartsPanel, gbc);
+
+JLabel livesCaption = new JLabel("Lives", JLabel.CENTER);
+livesCaption.setOpaque(true);
+livesCaption.setBackground(Color.WHITE);
+livesCaption.setForeground(new Color(25, 25, 25));
+livesCaption.setFont(new Font("Arial", Font.BOLD, 22));
+
+gbc.gridy = 1;
+gbc.weighty = 0.38;
+gbc.insets = new Insets(0, 0, 0, 0);
+
+lifePanel.add(livesCaption, gbc);
+
 timerPanel = makeStatCard(timerLabel, "Timer");
 scorePanel = makeStatCard(scoreLabel, "Score");
 levelPanel = makeStatCard(levelLabel, "Level");
@@ -1345,7 +1382,6 @@ private void updateWarningSound() {
     private void showGameSidePanel() {
         sidePanel.removeAll();
         sidePanel.setLayout(new GridLayout(4, 1, 0, 20));
-        lifePanel.setLayout(new GridLayout(2, 3, 0, 20));
         sidePanel.add(lifePanel);
         sidePanel.add(timerPanel);
         sidePanel.add(scorePanel);
