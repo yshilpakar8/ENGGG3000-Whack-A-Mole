@@ -7,7 +7,6 @@ import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.sound.sampled.*;
-import javax.swing.SwingConstants;
 
 
 public class WhackAMole2 {
@@ -271,7 +270,7 @@ public class WhackAMole2 {
 
     //added
     JPanel sidePanel = new JPanel();
-    JLabel levelLabel = new JLabel();
+   // JLabel levelLabel = new JLabel();
     JPanel levelPanel = new JPanel();
     JLabel lifeLabel = new JLabel();
     JLabel lifeLabel1 = new JLabel();
@@ -279,10 +278,13 @@ public class WhackAMole2 {
     JLabel lifeLabel3 = new JLabel();
     JPanel lifePanel = new JPanel();
 
-    JLabel timerLabel = new JLabel();
+   // JLabel timerLabel = new JLabel();
     JPanel timerPanel = new JPanel();
-    JLabel scoreLabel = new JLabel();
+    //JLabel scoreLabel = new JLabel();
     JPanel scorePanel = new JPanel();
+    JLabel levelLabel = new StatLabel(false);   // was new JLabel()
+    JLabel timerLabel = new StatLabel(true);    // was new JLabel()
+    JLabel scoreLabel = new StatLabel(false);   // was new JLabel()
 
     // --- Sensor test mode ---
     boolean testMode = false;
@@ -339,6 +341,79 @@ public class WhackAMole2 {
 
     int moleDisplayTime = moleTimeForLevel(1); // milliseconds
     int numberOfMoles = 1;
+
+    /** Keeps the old text ("Timer: 120") so existing code and tests still work,
+ *  but paints only the big value ("120s"). */
+private static final class StatLabel extends JLabel {
+    private final boolean seconds;
+    StatLabel(boolean seconds) { this.seconds = seconds; }
+
+    @Override protected void paintComponent(Graphics g) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setColor(getBackground());
+        g2.fillRect(0, 0, getWidth(), getHeight());
+        String t = getText();
+        String v = t.substring(t.lastIndexOf(':') + 1).trim();
+        if (seconds) v += "s";
+        g2.setFont(getFont());
+        g2.setColor(getForeground());
+        FontMetrics fm = g2.getFontMetrics();
+        int x = (getWidth() - fm.stringWidth(v)) / 2;
+        int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+        g2.drawString(v, x, y);
+        g2.dispose();
+    }
+}
+
+private static java.awt.geom.Path2D heartShape(float x, float y, float w, float h) {
+    java.awt.geom.Path2D.Float p = new java.awt.geom.Path2D.Float();
+    p.moveTo(x + w / 2, y + h);
+    p.curveTo(x - w * 0.15f, y + h * 0.55f, x + w * 0.05f, y - h * 0.1f, x + w / 2, y + h * 0.3f);
+    p.curveTo(x + w * 0.95f, y - h * 0.1f, x + w * 1.15f, y + h * 0.55f, x + w / 2, y + h);
+    p.closePath();
+    return p;
+}
+
+// Three hearts: red for lives left, pale grey for lives lost
+private final JPanel heartsPanel = new JPanel() {
+    @Override protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        int slots = 3;
+        int h = Math.min(getHeight() - 30, 60);
+        int w = (int) (h * 1.1);
+        int gap = w / 3;
+        int total = slots * w + (slots - 1) * gap;
+        int x0 = (getWidth() - total) / 2;
+        int y0 = (getHeight() - h) / 2;
+        for (int i = 0; i < slots; i++) {
+            g2.setColor(i < life ? new Color(255, 90, 95) : new Color(215, 222, 230));
+            g2.fill(heartShape(x0 + i * (w + gap), y0, w, h));
+        }
+        g2.dispose();
+    }
+};
+
+private JPanel makeStatCard(JComponent value, String caption) {
+    JPanel card = new JPanel(new GridBagLayout());
+    card.setOpaque(false);
+    GridBagConstraints gc = new GridBagConstraints();
+    gc.gridx = 0; gc.fill = GridBagConstraints.BOTH; gc.weightx = 1;
+
+    gc.gridy = 0; gc.weighty = 0.62; gc.insets = new Insets(0, 0, 4, 0);
+    card.add(value, gc);
+
+    JLabel cap = new JLabel(caption, JLabel.CENTER);
+    cap.setOpaque(true);
+    cap.setBackground(Color.WHITE);
+    cap.setForeground(new Color(25, 25, 25));
+    cap.setFont(new Font("Arial", Font.BOLD, 22));
+    gc.gridy = 1; gc.weighty = 0.38; gc.insets = new Insets(0, 0, 0, 0);
+    card.add(cap, gc);
+    return card;
+}
 
 
     WhackAMole2() {
@@ -400,51 +475,25 @@ boardContainer.add(boardPanel);
 
 frame.add(boardContainer, BorderLayout.CENTER);
 
-        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 30));
-        scoreLabel.setHorizontalAlignment(JLabel.CENTER);
-        scoreLabel.setText("Score: 0");
-        scoreLabel.setOpaque(true);
+        // ---- Side panel stat cards (big value on top, caption below) ----
+Font valueFont = new Font("Arial", Font.BOLD, 44);
+for (JLabel l : new JLabel[] { timerLabel, scoreLabel, levelLabel }) {
+    l.setFont(valueFont);
+    l.setForeground(new Color(25, 25, 25));
+    l.setBackground(Color.WHITE);
+    l.setOpaque(true);
+}
+timerLabel.setText("Timer: " + timeFrame);
+scoreLabel.setText("Score: 0");
+levelLabel.setText("Level: 1");
+lifeLabel.setText("Lives: 3");          // not shown any more, the hearts show the lives
 
-        timerLabel.setFont(new Font("Arial", Font.PLAIN, 30));
-        timerLabel.setHorizontalAlignment(JLabel.CENTER);
-        timerLabel.setText("Timer: " + timeFrame);
+heartsPanel.setBackground(Color.WHITE);
 
-        timerLabel.setOpaque(true);
-
-        //added
-        levelLabel.setFont(new Font("Arial", Font.PLAIN, 30));
-        levelLabel.setHorizontalAlignment(JLabel.CENTER);
-        levelLabel.setText("Level: 1");
-        levelLabel.setOpaque(true);
-
-        lifeLabel.setFont(new Font("Arial", Font.PLAIN, 30));
-        lifeLabel.setHorizontalAlignment(JLabel.CENTER);
-        lifeLabel.setText("Lives");
-        lifeLabel.setOpaque(true);
-
-        lifeLabel1 = new JLabel(fullHeartIcon, SwingConstants.TRAILING);
-        lifeLabel2 = new JLabel(fullHeartIcon);
-        lifeLabel3 = new JLabel(fullHeartIcon, SwingConstants.LEADING);
-
-        levelPanel.setLayout(new BorderLayout());
-        levelPanel.add(levelLabel);
-
-        lifePanel.setLayout(new BorderLayout());
-        lifePanel.add(new JLabel(""));
-        lifePanel.add(lifeLabel);
-        lifePanel.add(new JLabel(""));
-
-        lifePanel.add(lifeLabel1);
-        lifePanel.add(lifeLabel2);
-        lifePanel.add(lifeLabel3);
-        
-        //
-
-        timerPanel.setLayout(new BorderLayout());
-        timerPanel.add(timerLabel);
-
-        scorePanel.setLayout(new BorderLayout());
-        scorePanel.add(scoreLabel);
+lifePanel  = makeStatCard(heartsPanel, "Lives");
+timerPanel = makeStatCard(timerLabel, "Timer");
+scorePanel = makeStatCard(scoreLabel, "Score");
+levelPanel = makeStatCard(levelLabel, "Level");
 
         // sensor test side panel widgets
         testTitleLabel.setFont(new Font("Arial", Font.BOLD, 28));
