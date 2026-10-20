@@ -8,7 +8,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.sound.sampled.*;
 
-
 public class WhackAMole2 {
 
     final int width = 1200;
@@ -465,9 +464,9 @@ private JPanel makeStatCard(JComponent value, String caption) {
             boardWidth / BOARD_ASPECT_RATIO
         );
 
-        int x = (availableWidth - boardWidth) / 2;
+        int x = 0;
         int y = (availableHeight - boardHeight) / 2;
-
+        
         boardPanel.setBounds(x, y, boardWidth, boardHeight);
     }
 };
@@ -475,7 +474,7 @@ private JPanel makeStatCard(JComponent value, String caption) {
 boardContainer.setBackground(new Color(235, 245, 235));
 boardContainer.add(boardPanel);
 
-frame.add(boardContainer, BorderLayout.CENTER);
+// The game board and statistics will be positioned together below.
 
         // ---- Side panel stat cards (big value on top, caption below) ----
 Font valueFont = new Font("Arial", Font.BOLD, 44);
@@ -558,7 +557,33 @@ levelPanel = makeStatCard(levelLabel, "Level");
         sidePanel.setPreferredSize(new Dimension(450, 0));
         showGameSidePanel();
 
-        frame.add(sidePanel, BorderLayout.EAST);      
+        // Keep the blue game board and the white statistics panel together,
+        // with the unused green background split between the two outer edges.
+        JPanel mainPanel = new JPanel(null) {
+            @Override
+            public void doLayout() {
+                int availableWidth = getWidth();
+                int availableHeight = getHeight();
+                if (availableWidth <= 0 || availableHeight <= 0) return;
+
+                int statsWidth = Math.min(450, availableWidth);
+                int boardWidth = Math.min(
+                    Math.max(0, availableWidth - statsWidth),
+                    (int) Math.floor(availableHeight * BOARD_ASPECT_RATIO)
+                );
+                int boardHeight = (int) Math.round(boardWidth / BOARD_ASPECT_RATIO);
+                int leftMargin = (availableWidth - boardWidth - statsWidth) / 2;
+
+                boardContainer.setBounds(leftMargin,
+                    (availableHeight - boardHeight) / 2, boardWidth, boardHeight);
+                sidePanel.setBounds(leftMargin + boardWidth, 0,
+                    statsWidth, availableHeight);
+            }
+        };
+        mainPanel.setBackground(new Color(235, 245, 235));
+        mainPanel.add(boardContainer);
+        mainPanel.add(sidePanel);
+        frame.add(mainPanel, BorderLayout.CENTER);      
         
         boardPanel.setLayout(new GridLayout(3, 3));
         //
