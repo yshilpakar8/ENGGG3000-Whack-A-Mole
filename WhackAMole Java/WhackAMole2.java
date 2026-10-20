@@ -37,7 +37,7 @@ public class WhackAMole2 {
     static final float PLAY_X_MAX = BASELINE_CM;
     static final float NEAR_LIMIT_CM = 30f;
     static final float PLAY_Y_MIN = NEAR_LIMIT_CM;
-    static final float PLAY_Y_MAX = 160f;
+    static final float PLAY_Y_MAX = 140f;
     static final boolean SOUND_ON = true;
     static final long WARN_REPEAT_MS = 1500;   // repeat interval while still in a warning zone
 

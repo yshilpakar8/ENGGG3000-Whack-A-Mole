@@ -1,20 +1,10 @@
-// ============================================================================
-//  CORNER TRANSMITTER  (ESP #2 and #3 of 3)
-//  Flash the SAME code to both the LEFT and RIGHT corner ESPs.
-//  The centre receiver tells them apart by their MAC address, so the only
-//  thing to configure is the centre receiver's softAP MAC below.
-//  Each unit has 2 ultrasonic sensors facing into the play area.
-// ============================================================================
 #include <Arduino.h>
 #include <esp_now.h>
 #include <WiFi.h>
 #include "esp_wifi.h"
 
-// softAP MAC of the CENTRE receiver (it prints this on boot as "AP MAC ...")
-// 4C:C3:82:0C:2D:99
-uint8_t receiverMac[] = {0x4C, 0xC3, 0x82, 0x0C, 0x2D, 0x99};
-
-const int WIFI_CHANNEL = 6;   // must match the centre receiver's AP channel
+uint8_t receiverMac[] = {0x4C, 0xC3, 0x82, 0x0C, 0x2D, 0x99}; // Update with Centre AP MAC
+const int WIFI_CHANNEL = 6;
 
 const int NUM_SENSORS = 2;
 const int TRIG_PINS[NUM_SENSORS] = {18, 16};
@@ -28,21 +18,31 @@ const unsigned long SENSOR_GAP_MS = 5;
 const uint8_t FILTER_WINDOW = 5;
 const uint8_t FILTER_MIN_VALID = 3;
 
-typedef struct StructMessage {
+typedef struct SensorMessage {
   float dist[NUM_SENSORS];   
-} StructMessage;
+} SensorMessage;
 
-StructMessage message;
+typedef struct CommandMessage {
+  uint8_t command;
+} CommandMessage;
+
+SensorMessage message;
 
 volatile uint32_t sendStartUs = 0;
 volatile uint32_t lastElapsedUs = 0;
 volatile bool sendDone = false;
 volatile bool sendOk = false;
 
+// Callback to track ESP-NOW delivery status back to the centre receiver
 void dataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   lastElapsedUs = micros() - sendStartUs;
   sendOk = (status == ESP_NOW_SEND_SUCCESS);
   sendDone = true;
+  if (sendOk) {
+    Serial.printf("ESP-NOW Delivery OK - %lu us\n", (unsigned long)lastElapsedUs);
+  } else {
+    Serial.println("ESP-NOW Delivery FAIL");
+  }
 }
 
 struct SensorFilter {
@@ -101,6 +101,19 @@ void updateSensors() {
   }
 }
 
+void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
+  if (len != sizeof(CommandMessage)) return;
+  CommandMessage cmd;
+  memcpy(&cmd, incomingData, sizeof(cmd));
+
+  if (cmd.command == 1) {
+    updateSensors();
+    sendDone = false;
+    sendStartUs = micros();
+    esp_now_send(receiverMac, (uint8_t *)&message, sizeof(message));
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -108,13 +121,10 @@ void setup() {
   WiFi.disconnect();
 
   esp_wifi_set_promiscuous(true);
-  esp_err_t chErr = esp_wifi_set_channel(WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_channel(WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
   esp_wifi_set_promiscuous(false);
 
-  uint8_t ch; wifi_second_chan_t sc;
-  esp_wifi_get_channel(&ch, &sc);
-  Serial.printf("set_channel=%d, channel now=%u\n", chErr, ch);
-  Serial.print("This unit's MAC (put in the centre receiver's leftMac/rightMac): ");
+  Serial.print("Transmitter MAC: ");
   Serial.println(WiFi.macAddress());
 
   for (int i = 0; i < NUM_SENSORS; i++) {
@@ -128,7 +138,8 @@ void setup() {
     return;
   }
 
-  esp_now_register_send_cb(dataSent);
+  esp_now_register_recv_cb(dataRecv);
+  esp_now_register_send_cb(dataSent); // Register connection delivery status callback
 
   esp_now_peer_info_t peerInfo;
   memset(&peerInfo, 0, sizeof(peerInfo));
@@ -138,34 +149,9 @@ void setup() {
 
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
-    return;
   }
 }
 
 void loop() {
-  updateSensors();
-
-  sendDone = false;
-  sendStartUs = micros();
-  esp_err_t outcome = esp_now_send(receiverMac, (uint8_t *)&message, sizeof(message));
-  if (outcome != ESP_OK) {
-    Serial.printf("Error sending the message (err=%d)\n", outcome);
-  }
-
-  // Wait briefly for the callback so we can report this send's result
-  unsigned long waitStart = millis();
-  while (!sendDone && millis() - waitStart < 50) {
-    delay(1);
-  }
-
-  if (sendDone) {
-    if (sendOk) {
-      Serial.printf("Delivery OK - %lu us (%.2f ms)\n",
-                    (unsigned long)lastElapsedUs, lastElapsedUs / 1000.0f);
-    } else {
-      Serial.printf("Delivery fail - %lu us\n", (unsigned long)lastElapsedUs);
-    }
-  } else {
-    Serial.println("No send callback within 50 ms");
-  }
+  delay(10);
 }

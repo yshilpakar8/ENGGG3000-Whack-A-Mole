@@ -2,38 +2,46 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include "esp_wifi.h"
-#include <time.h>
 
 const char* ssid = "ESP32_G34";
 const char* password = "123456789";
 const int WIFI_CHANNEL = 6;
 
-uint8_t leftMac[]  = {0xE0, 0x5A, 0x1B, 0x1F, 0xD9, 0x20};
-uint8_t rightMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04};
+uint8_t leftMac[]  = {0xE0, 0x5A, 0x1B, 0x1F, 0xD9, 0x20}; // Update with your Left ESP MAC
+uint8_t rightMac[] = {0x00, 0x70, 0x07, 0x7C, 0x8B, 0x04}; // Update with your Right ESP MAC
 
 WiFiServer Server(80);
 WiFiClient client;
 
-const float BASELINE_CM = 150.0f;                 // distance left corner ESP to right corner ESP
-const float CENTRE_X    = BASELINE_CM / 2.0f;     // centre ESP mounting position
-const float SENSOR_PITCH_CM = 5.0f;              // spacing between the 2 sensors on one board
+// ----------------------------- Geometry & Angles -----------------------------
+const float BASELINE_CM = 150.0f;                 
+const float CENTRE_X    = BASELINE_CM / 2.0f;     
+const float SENSOR_PITCH_CM = 10.0f;              
 
 const int NUM_UNITS = 3;                          // 0 = left, 1 = centre, 2 = right
 const int SENSORS_PER_UNIT = 2;
 const int TOTAL_SENSORS = NUM_UNITS * SENSORS_PER_UNIT;
 
-
-
-
+// Sensor X positions along the front baseline (Y = 0)
 const float SENSOR_X[TOTAL_SENSORS] = {
-  0.0f,                           0.0f + SENSOR_PITCH_CM,                  // left unit
-  CENTRE_X - SENSOR_PITCH_CM / 2, CENTRE_X + SENSOR_PITCH_CM / 2,          // centre unit
-  BASELINE_CM - SENSOR_PITCH_CM,  BASELINE_CM                              // right unit
+  0.0f,                           0.0f + SENSOR_PITCH_CM,                  // left unit (Outer, Inner)
+  CENTRE_X - SENSOR_PITCH_CM / 2, CENTRE_X + SENSOR_PITCH_CM / 2,          // centre unit (s0, s1)
+  BASELINE_CM - SENSOR_PITCH_CM,  BASELINE_CM                              // right unit (Inner, Outer)
+};
+
+// Sensor pointing angles (degrees counter-clockwise from +X axis)
+const float SENSOR_ANGLE_DEG[TOTAL_SENSORS] = {
+  90.0f,  // Left Outer: straight out
+  45.0f,  // Left Inner: angled toward center
+  90.0f,  // Centre s0: straight out
+  90.0f,  // Centre s1: straight out
+  135.0f, // Right Inner: angled toward center
+  90.0f   // Right Outer: straight out
 };
 
 const int UNIT_OF[TOTAL_SENSORS] = {0, 0, 1, 1, 2, 2};
 
-// local sensors
+// Local sensors (Centre unit)
 const int TRIG_PINS[SENSORS_PER_UNIT] = {18, 12};
 const int ECHO_PINS[SENSORS_PER_UNIT] = {19, 14};
 
@@ -45,53 +53,50 @@ const unsigned long SENSOR_GAP_MS = 5;
 const uint8_t FILTER_WINDOW = 5;
 const uint8_t FILTER_MIN_VALID = 3;
 
-// ----------------------------- Tracking tuning -------------------------------
-const unsigned long REMOTE_TIMEOUT_MS = 150;   // remote data older than this is ignored (must be > 2x the transmitters' send period)
-const unsigned long HOLD_MS = 300;             // keep last position this long after losing it
-const float CLUSTER_CM = 15.0f;                // candidates within this of each other count as agreeing
-const float MAX_JUMP_CM = 20.0f;               // bigger jumps are treated as outliers and are ignored
-const uint8_t RELOCK_CYCLES = 3;               // consecutive "far away" fixes needed before snapping to them
+const unsigned long REMOTE_TIMEOUT_MS = 400;   
+const unsigned long HOLD_MS = 300;             
+const float CLUSTER_CM = 25.0f;                
+const float MAX_JUMP_CM = 50.0f;               
+const uint8_t RELOCK_CYCLES = 3;               
 
-// Geometry quality: a sensor pair is only trusted when its two circles cross at a
-// decent angle. sin(angle) near 0 means tiny range errors become huge position errors.
-const float MIN_GEOM_SIN = 0.30f;              // ~17 degrees. Raise if still noisy, lower if you lose coverage
-const float TRACK_PRIOR_CM = 40.0f;            // candidates near the current track are favoured (smaller = stickier)
-const uint8_t ACQUIRE_MIN_CANDS = 2;           // agreeing candidates needed to START tracking (set 1 if targets are missed)
-
-// One Euro filter (smooths hard when still, follows quickly when moving)
-const float MIN_CUTOFF_HZ = 1.5f;              // LOWER = less jitter when still, more lag
-const float BETA          = 0.04f;             // HIGHER = less lag when moving fast, more jitter while moving
-const float D_CUTOFF_HZ   = 1.0f;              // smoothing of the speed estimate; rarely needs changing
+const float ALPHA_MIN = 0.3f;
+const float ALPHA_GAIN = 0.02f;
+const float ALPHA_MAX = 0.85f;
 
 const bool DEBUG_PRINT = true;
 const unsigned long DEBUG_INTERVAL_MS = 250;
 
-// ESP-NOW payload
-typedef struct StructMessage {
+// ESP-NOW payloads
+typedef struct SensorMessage {
   float dist[SENSORS_PER_UNIT];
-} StructMessage;
+} SensorMessage;
+
+typedef struct CommandMessage {
+  uint8_t command;
+} CommandMessage;
 
 portMUX_TYPE remoteMux = portMUX_INITIALIZER_UNLOCKED;
-float remoteDist[2][SENSORS_PER_UNIT] = {{-1.0f, -1.0f}, {-1.0f, -1.0f}};   // [0]=left, [1]=right
+float remoteDist[2][SENSORS_PER_UNIT] = {{-1.0f, -1.0f}, {-1.0f, -1.0f}}; 
 unsigned long lastRemoteUpdateMs[2] = {0, 0};
+volatile bool remoteDataReady[2] = {false, false};
 
 void dataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
-  int slot;
+  int slot = -1;
   if (memcmp(mac_addr, leftMac, 6) == 0) slot = 0;
   else if (memcmp(mac_addr, rightMac, 6) == 0) slot = 1;
   else return;
-  if (len != (int)sizeof(StructMessage)) return;
+  if (len != (int)sizeof(SensorMessage)) return;
 
-  StructMessage m;
+  SensorMessage m;
   memcpy(&m, incomingData, sizeof(m));
 
   portENTER_CRITICAL(&remoteMux);
   memcpy(remoteDist[slot], m.dist, sizeof(m.dist));
   lastRemoteUpdateMs[slot] = millis();
+  remoteDataReady[slot] = true;
   portEXIT_CRITICAL(&remoteMux);
 }
 
-// ----------------------------- Per-sensor median filter ----------------------
 struct SensorFilter {
   float hist[FILTER_WINDOW];
   uint8_t idx = 0;
@@ -125,40 +130,7 @@ struct SensorFilter {
 };
 
 SensorFilter localFilter[SENSORS_PER_UNIT];
-float localDist[SENSORS_PER_UNIT];
-
-// ----------------------------- One Euro filter -------------------------------
-struct OneEuro {
-  bool init = false;
-  float xPrev = 0.0f;    // last filtered value
-  float dxPrev = 0.0f;   // last filtered speed
-  float rawPrev = 0.0f;  // last raw value
-
-  static float alphaFor(float cutoffHz, float dt) {
-    float tau = 1.0f / (2.0f * PI * cutoffHz);
-    return 1.0f / (1.0f + tau / dt);
-  }
-
-  void reset() { init = false; }
-
-  float filter(float v, float dt) {
-    if (!init) {
-      init = true;
-      xPrev = rawPrev = v;
-      dxPrev = 0.0f;
-      return v;
-    }
-    float dx = (v - rawPrev) / dt;
-    rawPrev = v;
-    dxPrev += alphaFor(D_CUTOFF_HZ, dt) * (dx - dxPrev);
-
-    float cutoff = MIN_CUTOFF_HZ + BETA * fabsf(dxPrev);
-    xPrev += alphaFor(cutoff, dt) * (v - xPrev);
-    return xPrev;
-  }
-};
-
-OneEuro filtX, filtY;
+float localDist[SENSORS_PER_UNIT] = {NAN, NAN};
 
 inline bool validDist(float d) {
   return !isnan(d) && d >= MIN_VALID_CM && d <= MAX_VALID_CM;
@@ -172,56 +144,60 @@ float measureDistance(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
 
   unsigned long duration = pulseIn(echoPin, HIGH, ECHO_TIMEOUT_US);
-  if (duration == 0) return NAN;   // timeout = nothing seen
+  if (duration == 0) return NAN;
 
   float cm = duration * 0.0343f / 2.0f;
   return validDist(cm) ? cm : NAN;
 }
 
-void updateSensors() {
+void updateLocalSensors() {
   for (int i = 0; i < SENSORS_PER_UNIT; i++) {
     localDist[i] = localFilter[i].update(measureDistance(TRIG_PINS[i], ECHO_PINS[i]));
     if (i < SENSORS_PER_UNIT - 1) delay(SENSOR_GAP_MS);
   }
 }
 
-// ----------------------------- Trilateration ---------------------------------
-// Intersection of two circles centred at (p1x,0) and (p2x,0) with radii d1, d2.
-// Returns the intersection with y >= 0 (in front of the sensor line), plus
-// outSin = sine of the angle between the two range vectors (geometry quality,
-// 1 = ideal, 0 = useless).
-bool trilaterate(float d1, float d2, float p1x, float p2x,
-                 float &outX, float &outY, float &outSin) {
+void pollRemoteUnits() {
+  CommandMessage cmd = {1};
+  
+  // Poll Left Unit
+  remoteDataReady[0] = false;
+  esp_now_send(leftMac, (uint8_t *)&cmd, sizeof(cmd));
+  unsigned long t0 = millis();
+  while (!remoteDataReady[0] && millis() - t0 < 60) { delay(2); }
+
+  // Poll Right Unit
+  remoteDataReady[1] = false;
+  esp_now_send(rightMac, (uint8_t *)&cmd, sizeof(cmd));
+  t0 = millis();
+  while (!remoteDataReady[1] && millis() - t0 < 60) { delay(2); }
+}
+
+bool trilaterate(float d1, float d2, float p1x, float p2x, float &outX, float &outY) {
   float D = p2x - p1x;
   if (fabsf(D) < 1.0f) return false;
 
   float xl = (d1 * d1 - d2 * d2 + D * D) / (2.0f * D);
   float ySq = d1 * d1 - xl * xl;
-  if (ySq < -25.0f) return false;   // circles don't meet (allow a little measurement noise)
+  if (ySq < -50.0f) return false;
   if (ySq < 0.0f) ySq = 0.0f;
 
   outX = p1x + xl;
   outY = sqrtf(ySq);
-
-  // unit vectors from each sensor to the point; |cross product| = sin(angle between them)
-  float ux1 = (outX - p1x) / d1, uy1 = outY / d1;
-  float ux2 = (outX - p2x) / d2, uy2 = outY / d2;
-  outSin = fabsf(ux1 * uy2 - ux2 * uy1);
   return true;
 }
 
 float x = -1.0f;
 float y = -1.0f;
-
 bool tracking = false;
 float sx = 0.0f, sy = 0.0f;
 unsigned long lastFixMs = 0;
-unsigned long lastUpdateMs = 0;
 uint8_t jumpStreak = 0;
-int candCount = 0;
+int candCount = 0;   
 
 void getLoc() {
-  updateSensors();
+  // 1. Poll remote units (outer/corner sensors)
+  pollRemoteUnits();
 
   float rd[2][SENSORS_PER_UNIT];
   unsigned long remoteAge[2];
@@ -232,98 +208,130 @@ void getLoc() {
   remoteAge[1] = now - lastRemoteUpdateMs[1];
   portEXIT_CRITICAL(&remoteMux);
 
-  // real time step since the last update (loop time varies with echo timeouts)
-  float dt = (lastUpdateMs == 0) ? 0.03f : (now - lastUpdateMs) / 1000.0f;
-  lastUpdateMs = now;
-  dt = constrain(dt, 0.005f, 0.25f);
-
-  // Assemble all six distances (NAN = unavailable)
   float d[TOTAL_SENSORS];
   for (int s = 0; s < SENSORS_PER_UNIT; s++) {
     d[0 * SENSORS_PER_UNIT + s] = (remoteAge[0] <= REMOTE_TIMEOUT_MS) ? rd[0][s] : NAN;  // left
-    d[1 * SENSORS_PER_UNIT + s] = localDist[s];                                          // centre
+    d[1 * SENSORS_PER_UNIT + s] = NAN;                                                   // centre (dormant)
     d[2 * SENSORS_PER_UNIT + s] = (remoteAge[1] <= REMOTE_TIMEOUT_MS) ? rd[1][s] : NAN;  // right
   }
 
-  // Candidate positions from every cross-board sensor pair, each with a quality weight
-  struct Cand { float x, y, w; };
+  struct Cand { float x, y; };
   Cand c[TOTAL_SENSORS * TOTAL_SENSORS];
   int n = 0;
 
+  // Multi-unit cross trilateration
   for (int i = 0; i < TOTAL_SENSORS; i++) {
+    if (UNIT_OF[i] == 1) continue;
     if (!validDist(d[i])) continue;
     for (int j = i + 1; j < TOTAL_SENSORS; j++) {
+      if (UNIT_OF[j] == 1) continue;
       if (UNIT_OF[i] == UNIT_OF[j]) continue;
       if (!validDist(d[j])) continue;
-      float cx, cy, sn;
-      if (trilaterate(d[i], d[j], SENSOR_X[i], SENSOR_X[j], cx, cy, sn)) {
-        if (sn < MIN_GEOM_SIN) continue;     // ill-conditioned pair, skip it
-        c[n++] = {cx, cy, sn * sn};          // position error ~ 1/sin, so weight ~ sin^2
+      float cx, cy;
+      if (trilaterate(d[i], d[j], SENSOR_X[i], SENSOR_X[j], cx, cy)) {
+        if (cy >= 0.0f) {
+          c[n++] = {cx, cy};
+        }
       }
     }
   }
-  candCount = n;
 
+  // Single-box ray projection fallback for outer units when cross-trilateration misses
+  if (n == 0) {
+    for (int u = 0; u < TOTAL_SENSORS; u += 2) {
+      if (u == 2) continue; // Skip centre unit
+      if (validDist(d[u]) && validDist(d[u+1])) {
+        float rad0 = SENSOR_ANGLE_DEG[u] * (PI / 180.0f);
+        float rad1 = SENSOR_ANGLE_DEG[u+1] * (PI / 180.0f);
+        float px0 = SENSOR_X[u] + d[u] * cosf(rad0);
+        float py0 = d[u] * sinf(rad0);
+        float px1 = SENSOR_X[u+1] + d[u+1] * cosf(rad1);
+        float py1 = d[u+1] * sinf(rad1);
+        c[n++] = {(px0 + px1) / 2.0f, (py0 + py1) / 2.0f};
+      } else if (validDist(d[u])) {
+        float rad = SENSOR_ANGLE_DEG[u] * (PI / 180.0f);
+        c[n++] = {SENSOR_X[u] + d[u] * cosf(rad), d[u] * sinf(rad)};
+      } else if (validDist(d[u+1])) {
+        float rad = SENSOR_ANGLE_DEG[u+1] * (PI / 180.0f);
+        c[n++] = {SENSOR_X[u+1] + d[u+1] * cosf(rad), d[u+1] * sinf(rad)};
+      }
+    }
+  }
+
+  candCount = n;
   bool measured = false;
   float mx = 0.0f, my = 0.0f;
 
   if (n > 0) {
-    // Pick the candidate with the most (quality-weighted) agreement from the others,
-    // nudged toward the current track so it doesn't hop to a ghost intersection.
+    // Outer sensors succeeded. Centre sensors stay dormant.
+    localDist[0] = NAN;
+    localDist[1] = NAN;
+
+    float rx = tracking ? sx : CENTRE_X;
+    float ry = tracking ? sy : 50.0f;
+
     int best = 0;
-    float bestScore = -1.0f;
+    float bestD = 1e9f;
     for (int k = 0; k < n; k++) {
-      float support = 0.0f;
-      for (int j = 0; j < n; j++) {
-        if (hypotf(c[j].x - c[k].x, c[j].y - c[k].y) <= CLUSTER_CM) support += c[j].w;
-      }
-      float score = support;
-      if (tracking) score /= 1.0f + hypotf(c[k].x - sx, c[k].y - sy) / TRACK_PRIOR_CM;
-      if (score > bestScore) { bestScore = score; best = k; }
+      float dd = hypotf(c[k].x - rx, c[k].y - ry);
+      if (dd < bestD) { bestD = dd; best = k; }
     }
 
-    // Quality-weighted mean of the winning cluster
-    float sumW = 0.0f, sumX = 0.0f, sumY = 0.0f;
+    float sumX = 0.0f, sumY = 0.0f;
     int cnt = 0;
     for (int k = 0; k < n; k++) {
       if (hypotf(c[k].x - c[best].x, c[k].y - c[best].y) <= CLUSTER_CM) {
-        sumW += c[k].w;
-        sumX += c[k].w * c[k].x;
-        sumY += c[k].w * c[k].y;
+        sumX += c[k].x;
+        sumY += c[k].y;
         cnt++;
       }
     }
-    mx = sumX / sumW;
-    my = sumY / sumW;
+    mx = sumX / cnt;
+    my = sumY / cnt;
+    measured = true;
+  } else {
+    // -------------------------------------------------------------
+    // FALLBACK: All outer sensors failed. Wake up and fire local centre sensors.
+    // -------------------------------------------------------------
+    updateLocalSensors();
+    bool v0 = validDist(localDist[0]);
+    bool v1 = validDist(localDist[1]);
 
-    // don't start tracking off a lone, unconfirmed candidate
-    measured = tracking || cnt >= ACQUIRE_MIN_CANDS;
+    if (v0 && v1) {
+      my = (localDist[0] + localDist[1]) / 2.0f;
+      mx = CENTRE_X;
+      measured = true;
+    } else if (v0) {
+      my = localDist[0];
+      mx = CENTRE_X;
+      measured = true;
+    } else if (v1) {
+      my = localDist[1];
+      mx = CENTRE_X;
+      measured = true;
+    }
   }
 
-  // Outlier rejection + One Euro smoothing
   if (measured) {
     if (!tracking || now - lastFixMs > HOLD_MS) {
-      filtX.reset();
-      filtY.reset();
-      sx = filtX.filter(mx, dt);
-      sy = filtY.filter(my, dt);
+      sx = mx;
+      sy = my;
       tracking = true;
       jumpStreak = 0;
       lastFixMs = now;
     } else {
       float jump = hypotf(mx - sx, my - sy);
       if (jump > MAX_JUMP_CM) {
-        if (++jumpStreak >= RELOCK_CYCLES) {   // it really did move: snap to it
-          filtX.reset();
-          filtY.reset();
-          sx = filtX.filter(mx, dt);
-          sy = filtY.filter(my, dt);
+        if (++jumpStreak >= RELOCK_CYCLES) {
+          sx = mx;
+          sy = my;
           jumpStreak = 0;
           lastFixMs = now;
         }
       } else {
-        sx = filtX.filter(mx, dt);
-        sy = filtY.filter(my, dt);
+        float alpha = constrain(ALPHA_MIN + ALPHA_GAIN * jump, ALPHA_MIN, ALPHA_MAX);
+        sx += alpha * (mx - sx);
+        sy += alpha * (my - sy);
         jumpStreak = 0;
         lastFixMs = now;
       }
@@ -373,14 +381,30 @@ void setup() {
   }
   esp_now_register_recv_cb(dataRecv);
 
+  esp_now_peer_info_t peerInfo;
+  
+  memset(&peerInfo, 0, sizeof(peerInfo));
+  memcpy(peerInfo.peer_addr, leftMac, 6);
+  peerInfo.channel = WIFI_CHANNEL;
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add Left peer");
+  }
+
+  memset(&peerInfo, 0, sizeof(peerInfo));
+  memcpy(peerInfo.peer_addr, rightMac, 6);
+  peerInfo.channel = WIFI_CHANNEL;
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add Right peer");
+  }
+
   Server.begin();
 }
 
 void loop() {
   getLoc();
   serviceClient();
-
-  
 
   if (client && client.connected()) {
     client.printf("x: %.1f y: %.1f\n", x, y);
