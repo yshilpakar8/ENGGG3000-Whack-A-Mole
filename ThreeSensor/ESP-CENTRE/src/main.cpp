@@ -290,9 +290,7 @@ void getLoc() {
     my = sumY / cnt;
     measured = true;
   } else {
-    // -------------------------------------------------------------
-    // FALLBACK: All outer sensors failed. Wake up and fire local centre sensors.
-    // -------------------------------------------------------------
+    // Fallback to centre sensor logic
     updateLocalSensors();
     bool v0 = validDist(localDist[0]);
     bool v1 = validDist(localDist[1]);
