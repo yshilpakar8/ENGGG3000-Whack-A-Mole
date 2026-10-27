@@ -1,0 +1,25 @@
+Manifest-Version: 1.0
+Created-By: Maven JAR Plugin 3.4.2
+Build-Jdk-Spec: 11
+Automatic-Module-Name: com.fazecast.jSerialComm
+Bundle-Description: Java Serial Communications Library
+Bundle-ManifestVersion: 2
+Bundle-Name: jSerialComm
+Bundle-SymbolicName: com.fazecast.jSerialComm
+Bundle-Vendor: Fazecast, Inc.
+Bundle-Version: 2.11.4
+Export-Package: com.fazecast.jSerialComm;version="2.11.4"
+Implementation-Title: jSerialComm: Java Serial Communications Library
+Implementation-Vendor: Fazecast, Inc.
+Implementation-Version: 2.11.4
+Multi-Release: true
+Private-Package: Android,Android.arm64-v8a,Android.armeabi-v7a,Android.x
+ 86,Android.x86_64,FreeBSD.arm64,FreeBSD.x86,FreeBSD.x86_64,Linux.armv5,
+ Linux.armv6hf,Linux.armv7hf,Linux.armv8_32,Linux.armv8_64,Linux.ppc64le
+ ,Linux.x86,Linux.x86_64,OSX.aarch64,OSX.x86,OSX.x86_64,OpenBSD.amd64,Op
+ enBSD.x86,Solaris.sparcv8plus_32,Solaris.sparcv9_64,Solaris.x86,Solaris
+ .x86_64,Windows.aarch64,Windows.armv7,Windows.x86,Windows.x86_64,com.fa
+ zecast.jSerialComm.android
+Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=1.6))"
+Sealed: true
+

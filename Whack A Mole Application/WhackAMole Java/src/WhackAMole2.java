@@ -424,11 +424,11 @@ private JPanel makeStatCard(JComponent value, String caption) {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
-        grassImg = new ImageIcon(getClass().getResource("./lib/grass.png")).getImage();
-        holeImg = new ImageIcon(getClass().getResource("./lib/hole.png")).getImage();
+        grassImg = new ImageIcon(getClass().getResource("/lib/grass.png")).getImage();
+        holeImg = new ImageIcon(getClass().getResource("/lib/hole.png")).getImage();
 
-        Image fullHeartImg = new ImageIcon(getClass().getResource("./lib/full-heart.png")).getImage();
-        Image emptyHeartImg = new ImageIcon(getClass().getResource("./lib/empty-heart.png")).getImage();
+        Image fullHeartImg = new ImageIcon(getClass().getResource("/lib/full-heart.png")).getImage();
+        Image emptyHeartImg = new ImageIcon(getClass().getResource("/lib/empty-heart.png")).getImage();
 
         fullHeartIcon = new ImageIcon(fullHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
         emptyHeartIcon = new ImageIcon(emptyHeartImg.getScaledInstance(100, 100,Image.SCALE_SMOOTH));
@@ -564,7 +564,7 @@ levelPanel = makeStatCard(levelLabel, "Level");
         //
 
         Image moleImg = new ImageIcon(
-    getClass().getResource("./lib/mole.png")
+    getClass().getResource("/lib/mole.png")
 ).getImage();
 
 boardPanel.addComponentListener(new ComponentAdapter() {
