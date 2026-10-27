@@ -29,7 +29,7 @@ const float SENSOR_X[TOTAL_SENSORS] = {
   BASELINE_CM - SENSOR_PITCH_CM,  BASELINE_CM                              // right unit (Inner, Outer)
 };
 
-// Sensor pointing angles (degrees counter-clockwise from +X axis)
+// Sensor pointing angles (degrees counter-clockwise from +X axis) relative to player
 const float SENSOR_ANGLE_DEG[TOTAL_SENSORS] = {
   90.0f,  // Left Outer: straight out
   45.0f,  // Left Inner: angled toward center
@@ -290,9 +290,7 @@ void getLoc() {
     my = sumY / cnt;
     measured = true;
   } else {
-    // -------------------------------------------------------------
-    // FALLBACK: All outer sensors failed. Wake up and fire local centre sensors.
-    // -------------------------------------------------------------
+    // Fallback to centre sensor logic
     updateLocalSensors();
     bool v0 = validDist(localDist[0]);
     bool v1 = validDist(localDist[1]);

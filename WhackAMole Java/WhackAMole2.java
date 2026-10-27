@@ -8,7 +8,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.sound.sampled.*;
 
-
 public class WhackAMole2 {
 
     final int width = 1200;
@@ -64,111 +63,7 @@ public class WhackAMole2 {
             this.valid = valid;
         }
     }
-
-    /*static final class PlayerTracker {
-        static final int MEDIAN_WINDOW = 1;        
-        static final float MAX_JUMP_CM = 20f;      // biggest jump in position allowed
-        static final int RELOCK_SAMPLES = 5;       // consecutive reposition tracker
-        static final float MEASURE_ALPHA = 0.7f;   
-        static final float DISPLAY_TAU_MS = 60f;   
-        static final long STALE_MS = 500;          // hold the last position this long with no valid data
-
-        private final float[] winX = new float[MEDIAN_WINDOW];
-        private final float[] winY = new float[MEDIAN_WINDOW];
-        private int winCount = 0;
-        private int winHead = 0;
-
-        private boolean init = false;
-        private float targetX, targetY;   
-        private float dispX, dispY;       
-        private long lastFixMs = 0;
-        private int rejectStreak = 0;
-        private long lastTickNs = 0;
-
-        
-        synchronized void onSample(float rx, float ry, long nowMs) {
-            if (Float.isNaN(rx) || Float.isNaN(ry)
-                    || Float.isInfinite(rx) || Float.isInfinite(ry) || ry < 0) {
-                return;
-            }
-
-        
-            if (!init || nowMs - lastFixMs > STALE_MS) {
-                reset(rx, ry, true);
-                lastFixMs = nowMs;
-                return;
-            }
-
-            float jump = (float) Math.hypot(rx - targetX, ry - targetY);
-            if (jump > MAX_JUMP_CM) {
-                rejectStreak++;
-                if (rejectStreak < RELOCK_SAMPLES) {
-                    return;
-                }
-                reset(rx, ry, false);
-                lastFixMs = nowMs;
-                return;
-            }
-            rejectStreak = 0;
-
-            winX[winHead] = rx;
-            winY[winHead] = ry;
-            winHead = (winHead + 1) % MEDIAN_WINDOW;
-            if (winCount < MEDIAN_WINDOW) winCount++;
-            float mx = median(winX, winCount);
-            float my = median(winY, winCount);
-
-            // smooting
-            targetX += MEASURE_ALPHA * (mx - targetX);
-            targetY += MEASURE_ALPHA * (my - targetY);
-            lastFixMs = nowMs;
-        }
-
-        
-        synchronized void tick() {
-            long nowNs = System.nanoTime();
-            if (!init) {
-                lastTickNs = nowNs;
-                return;
-            }
-            float dtMs = (nowNs - lastTickNs) / 1_000_000f;
-            lastTickNs = nowNs;
-            dtMs = Math.max(0f, Math.min(dtMs, 100f));
-
-            float a = 1f - (float) Math.exp(-dtMs / DISPLAY_TAU_MS);
-            dispX += (targetX - dispX) * a;
-            dispY += (targetY - dispY) * a;
-        }
-
-        
-        synchronized Fix get() {
-            boolean valid = init && (System.currentTimeMillis() - lastFixMs) < STALE_MS;
-            return new Fix(dispX, dispY, valid);
-        }
-
-        private void reset(float rx, float ry, boolean snapDisplay) {
-            Arrays.fill(winX, rx);
-            Arrays.fill(winY, ry);
-            winCount = 1;
-            winHead = 1 % MEDIAN_WINDOW;
-            targetX = rx;
-            targetY = ry;
-            if (snapDisplay || !init) {
-                dispX = rx;
-                dispY = ry;
-            }
-            rejectStreak = 0;
-            init = true;
-        }
-
-        private static float median(float[] buf, int n) {
-            float[] tmp = Arrays.copyOf(buf, n);
-            Arrays.sort(tmp);
-            return (n % 2 == 1) ? tmp[n / 2] : (tmp[n / 2 - 1] + tmp[n / 2]) / 2f;
-        }
-    }*/
-
-     static final class PlayerTracker {
+    static final class PlayerTracker {
     static final int AVG_WINDOW = 8;           // readings averaged (use 6-10)
     static final int MIN_SAMPLES = 6;          // readings needed before a position is reported
     static final float MAX_JUMP_CM = 50f;      // biggest jump from the current average allowed
@@ -341,9 +236,6 @@ public class WhackAMole2 {
 
     int moleDisplayTime = moleTimeForLevel(1); // milliseconds
     int numberOfMoles = 1;
-
-    /** Keeps the old text ("Timer: 120") so existing code and tests still work,
- *  but paints only the big value ("120s"). */
 private static final class StatLabel extends JLabel {
     private final boolean seconds;
     StatLabel(boolean seconds) { this.seconds = seconds; }
@@ -365,36 +257,6 @@ private static final class StatLabel extends JLabel {
         g2.dispose();
     }
 }
-
-// private static java.awt.geom.Path2D heartShape(float x, float y, float w, float h) {
-//     java.awt.geom.Path2D.Float p = new java.awt.geom.Path2D.Float();
-//     p.moveTo(x + w / 2, y + h);
-//     p.curveTo(x - w * 0.15f, y + h * 0.55f, x + w * 0.05f, y - h * 0.1f, x + w / 2, y + h * 0.3f);
-//     p.curveTo(x + w * 0.95f, y - h * 0.1f, x + w * 1.15f, y + h * 0.55f, x + w / 2, y + h);
-//     p.closePath();
-//     return p;
-// }
-
-// // Three hearts: red for lives left, pale grey for lives lost
-// private final JPanel heartsPanel = new JPanel() {
-//     @Override protected void paintComponent(Graphics g) {
-//         super.paintComponent(g);
-//         Graphics2D g2 = (Graphics2D) g.create();
-//         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-//         int slots = 3;
-//         int h = Math.min(getHeight() - 30, 60);
-//         int w = (int) (h * 1.1);
-//         int gap = w / 3;
-//         int total = slots * w + (slots - 1) * gap;
-//         int x0 = (getWidth() - total) / 2;
-//         int y0 = (getHeight() - h) / 2;
-//         for (int i = 0; i < slots; i++) {
-//             g2.setColor(i < life ? new Color(255, 90, 95) : new Color(215, 222, 230));
-//             g2.fill(heartShape(x0 + i * (w + gap), y0, w, h));
-//         }
-//         g2.dispose();
-//     }
-// };
 
 private JPanel makeStatCard(JComponent value, String caption) {
     JPanel card = new JPanel(new GridBagLayout());
@@ -465,9 +327,9 @@ private JPanel makeStatCard(JComponent value, String caption) {
             boardWidth / BOARD_ASPECT_RATIO
         );
 
-        int x = (availableWidth - boardWidth) / 2;
+        int x = 0;
         int y = (availableHeight - boardHeight) / 2;
-
+        
         boardPanel.setBounds(x, y, boardWidth, boardHeight);
     }
 };
@@ -475,9 +337,6 @@ private JPanel makeStatCard(JComponent value, String caption) {
 boardContainer.setBackground(new Color(235, 245, 235));
 boardContainer.add(boardPanel);
 
-frame.add(boardContainer, BorderLayout.CENTER);
-
-        // ---- Side panel stat cards (big value on top, caption below) ----
 Font valueFont = new Font("Arial", Font.BOLD, 44);
 for (JLabel l : new JLabel[] { timerLabel, scoreLabel, levelLabel }) {
     l.setFont(valueFont);
@@ -488,9 +347,6 @@ for (JLabel l : new JLabel[] { timerLabel, scoreLabel, levelLabel }) {
 timerLabel.setText("Timer: " + timeFrame);
 scoreLabel.setText("Score: 0");
 levelLabel.setText("Level: 1");
-//lifeLabel.setText("Lives: 3");          // not shown any more, the hearts show the lives
-
-//heartsPanel.setBackground(Color.WHITE);
 
 // Lives card: three heart images on top, caption underneath
 lifePanel = new JPanel(new GridBagLayout());
@@ -554,14 +410,38 @@ levelPanel = makeStatCard(levelLabel, "Level");
         testButton.setPreferredSize(new Dimension(220, 60));
         testButton.setFocusPainted(false);
 
-        //changed
         sidePanel.setPreferredSize(new Dimension(450, 0));
         showGameSidePanel();
 
-        frame.add(sidePanel, BorderLayout.EAST);      
+        // Keep the blue game board and the white statistics panel together,
+        // with the unused green background split between the two outer edges.
+        JPanel mainPanel = new JPanel(null) {
+            @Override
+            public void doLayout() {
+                int availableWidth = getWidth();
+                int availableHeight = getHeight();
+                if (availableWidth <= 0 || availableHeight <= 0) return;
+
+                int statsWidth = Math.min(450, availableWidth);
+                int boardWidth = Math.min(
+                    Math.max(0, availableWidth - statsWidth),
+                    (int) Math.floor(availableHeight * BOARD_ASPECT_RATIO)
+                );
+                int boardHeight = (int) Math.round(boardWidth / BOARD_ASPECT_RATIO);
+                int leftMargin = (availableWidth - boardWidth - statsWidth) / 2;
+
+                boardContainer.setBounds(leftMargin,
+                    (availableHeight - boardHeight) / 2, boardWidth, boardHeight);
+                sidePanel.setBounds(leftMargin + boardWidth, 0,
+                    statsWidth, availableHeight);
+            }
+        };
+        mainPanel.setBackground(new Color(235, 245, 235));
+        mainPanel.add(boardContainer);
+        mainPanel.add(sidePanel);
+        frame.add(mainPanel, BorderLayout.CENTER);      
         
         boardPanel.setLayout(new GridLayout(3, 3));
-        //
 
         Image moleImg = new ImageIcon(
     getClass().getResource("./mole.png")
@@ -664,7 +544,6 @@ boardPanel.addComponentListener(new ComponentAdapter() {
         frame.setGlassPane(sensorPanel);
         sensorPanel.setVisible(true);
 
-       // ~60 fps: ease the displayed position, check for hits, repaint the marker.
     new Timer(16, e -> {
     tracker.tick();
     updateWarningSound();      
@@ -708,8 +587,6 @@ boardPanel.addComponentListener(new ComponentAdapter() {
         serialTest = new SerialTest(WhackAMole2.this::handleSerialLine);
         serialTest.initialize();
     }
-
-    /** Builds a short beep (or several) as an in-memory audio clip. */
 private static Clip makeTone(int hz, int beepMs, int beeps) {
     try {
         float rate = 44100f;
@@ -751,7 +628,6 @@ private void playClip(Clip c) {
 private void updateWarningSound() {
     if (!SOUND_ON) return;
 
-    // Warnings play during a game and also during the sensor test.
     boolean running = testMode || (moleTimer != null && moleTimer.isRunning());
     Zone z = zoneFor(tracker.get());
     boolean warn = running && (z == Zone.TOO_CLOSE || z == Zone.OFF_BOARD);
@@ -782,7 +658,6 @@ private void updateWarningSound() {
         return Zone.ON_BOARD;
     }
     
-    /** Draws a simple top-down (circular) mallet head centred on point p (the player's position). */
     private void drawMallet(Graphics2D g0, Point p, Zone zone) {
         Graphics2D g = (Graphics2D) g0.create();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -819,15 +694,6 @@ private void updateWarningSound() {
         g.setColor(new Color(rim.getRed(), rim.getGreen(), rim.getBlue(), 140));
         int ring = R - 13;
         g.drawOval(p.x - ring, p.y - ring, ring * 2, ring * 2);
-
-        
-
-        // handle end seen from above (centre = hit point)
-        // int h = 6;
-        // g.setColor(rim);
-        // g.fillOval(p.x - h, p.y - h, h * 2, h * 2);
-        // g.setColor(new Color(255, 255, 255, 90));
-        // g.fillOval(p.x - 3, p.y - 4, 4, 4);
 
         g.dispose();
     }
@@ -885,7 +751,6 @@ private void updateWarningSound() {
     private void checkForHit() {
         if (testMode) return;
 
-        // A mole is only "active" if it exists and hasn't been hit yet.
         boolean firstActive  = currMoleTile != null && clicked != 1;
         boolean secondActive = secondMoleTile != null && clicked2 != 1;
         if (!firstActive && !secondActive) return;
@@ -911,8 +776,6 @@ private void updateWarningSound() {
         }
     }
 
-
-    //added
     private void updateLevel() {
 
         int newLevel;
@@ -935,14 +798,12 @@ private void updateWarningSound() {
     
             levelLabel.setText("Level: " + level);
     
-            // Restart the mole timer with the new speed
             if (moleTimer != null) {
                 moleTimer.setDelay(moleDisplayTime);
             }
         }
     }
 
-    //added
     private void loseLife() {
         life--;
     
@@ -969,10 +830,7 @@ private void updateWarningSound() {
         }
     }
 
-    private void updateLife() {
-        //lifeLabel.setText("Lives: " + life);
-
-        
+    private void updateLife() {        
         if (life == 3) {
             lifeLabel1.setIcon(fullHeartIcon);
             lifeLabel2.setIcon(fullHeartIcon);
@@ -991,7 +849,6 @@ private void updateWarningSound() {
 
         // Check whether the previous mole(s) were hit.
         // If not, the player loses a life.
-    
         boolean missedMole = false;
     
         if (currMoleTile != null && clicked != 1) {
@@ -1049,8 +906,6 @@ private void updateWarningSound() {
         prevFirstIdx = firstNum;
         prevSecondIdx = secondNum;
     }
-
-    /** Picks a random tile index (0-8) that is not in the excluded list. */
     private int pickTile(int... excluded) {
         int n;
         boolean bad;
@@ -1064,11 +919,8 @@ private void updateWarningSound() {
         return n;
     }
 
-    // ------------------------------------------------------------------
-    // "BAM!" hit effect (drawn on the glass pane over the tile that was hit)
-    // ------------------------------------------------------------------
-
-    static final int BAM_MS = 450;   // how long the effect lasts
+ 
+    static final int BAM_MS = 450;   
 
     private static final class Bam {
         final JButton tile;
@@ -1103,10 +955,8 @@ private void updateWarningSound() {
             }
 
             float t = age / (float) BAM_MS;                          // 0 -> 1
-            // pop in (0.5x -> 1.3x), then settle to 1.0x
             float scale = (t < 0.2f) ? 0.5f + (t / 0.2f) * 0.8f
                                      : 1.3f - ((t - 0.2f) / 0.8f) * 0.3f;
-            // fully visible, then fade out over the last 40%
             float alpha = (t < 0.6f) ? 1f : 1f - (t - 0.6f) / 0.4f;
 
             Point c = SwingUtilities.convertPoint(b.tile.getParent(),
@@ -1121,7 +971,6 @@ private void updateWarningSound() {
             e.rotate(Math.toRadians(-10));
             e.scale(scale, scale);
 
-            // comic starburst
             int spikes = 14;
             double outer = 78, inner = 46;
             Polygon star = new Polygon();
@@ -1136,7 +985,6 @@ private void updateWarningSound() {
             e.setColor(new Color(235, 60, 20));
             e.drawPolygon(star);
 
-            // outlined "BAM!" text
             Font font = new Font("Arial", Font.BOLD, 36);
             Shape text = font.createGlyphVector(e.getFontRenderContext(), "BAM!").getOutline();
             Rectangle2D tb = text.getBounds2D();
@@ -1152,7 +1000,6 @@ private void updateWarningSound() {
         g2.dispose();
     }
 
-    /** Creates the 3x3 grid of hole tiles. Used by both the game and the sensor test. */
     private void buildBoard() {
         bamEffects.clear();
         boardPanel.removeAll();
@@ -1176,7 +1023,6 @@ private void updateWarningSound() {
                         );
                     }
 
-                    // Sensor test: tint the tile the player is standing on
                     if (testMode && tileIdx == highlightIdx) {
                         g.setColor(new Color(255, 230, 0, 110));
                         g.fillRect(0, 0, getWidth(), getHeight());
@@ -1227,7 +1073,6 @@ private void updateWarningSound() {
         boardPanel.repaint();
     }
 
-    //edited
     private void startGame() {
 
         testMode = false;
@@ -1270,11 +1115,7 @@ private void updateWarningSound() {
     
         // Spawn the first mole immediately
         spawnMoles();
-    
-        // --------------------------------
-        // GAME TIMER
-        // --------------------------------
-    
+
         gameTimer = new Timer(1000, new ActionListener() {
     
             public void actionPerformed(ActionEvent e) {
@@ -1303,15 +1144,10 @@ private void updateWarningSound() {
             }
         });
     
-        // --------------------------------
-        // MOLE TIMER
-        // --------------------------------
-    
+
         moleTimer = new Timer(moleDisplayTime, new ActionListener() {
     
             public void actionPerformed(ActionEvent e) {
-                // NOTE: do NOT reset clicked/clicked2 here. spawnMoles() needs them
-                // to tell whether the previous mole was hit, and resets them itself.
                 spawnMoles();
             }
         });
@@ -1320,11 +1156,6 @@ private void updateWarningSound() {
         moleTimer.start();
     }
 
-    // ------------------------------------------------------------------
-    // Sensor test mode
-    // ------------------------------------------------------------------
-
-    /** Shows the play board and live player position, with no moles, for checking sensor coverage. */
     private void startSensorTest() {
         testMode = true;
         highlightIdx = -1;
@@ -1343,7 +1174,6 @@ private void updateWarningSound() {
         sensorPanel.setVisible(true);
     }
 
-    /** Refreshes the live readout and highlighted tile in the sensor test side panel. */
     private void updateTestPanel() {
         Fix fix = tracker.get();
         Zone z = zoneFor(fix);
@@ -1541,7 +1371,6 @@ private void showStartScreen() {
     boardPanel.repaint();
 }
 
-    // Runs on the serial reader thread; only parses and hands the raw sample to the tracker. 
     private void handleSerialLine(String line) {
         lastSerialLine = line;
 
